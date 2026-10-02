@@ -7,6 +7,12 @@ Jeu de poker menteur aux dés (9, 10, Valet, Dame, Roi, As) pour mobile, sous fo
 - Annonce une combinaison toujours plus forte. Le joueur suivant dit **« Menteur ! »** ou **« Je te crois »**.
 - On joue à plusieurs en se passant le téléphone, et/ou contre l'ordinateur.
 
+## Jouer en ligne
+
+Bouton **🌐 Jouer en ligne** : pseudo, salons publics ou privés (avec une clé), le maître du salon lance la partie,
+annonces dans l'appli, chat. Utilise Firebase (Realtime Database + connexion anonyme) : voir **FIREBASE.md**.
+Pour tester en local avec l'émulateur Firebase : ouvrir le jeu avec `?emu=1`.
+
 ## Jouer sur le téléphone
 
 1. Activer GitHub Pages : *Settings → Pages → Source : Deploy from a branch → `main` / `(root)`*.
@@ -23,5 +29,5 @@ Le jeu fonctionne ensuite hors-ligne.
 npx http-server -p 8080
 ```
 
-Fichiers : `index.html`, `style.css`, `game.js` (règles + ordinateur), `app.js` (interface, secousse, sons), `oral.js` (mode à voix haute avec le chapeau), `sw.js` (hors-ligne).
+Fichiers : `index.html`, `style.css`, `game.js` (règles + ordinateur), `app.js` (interface, secousse, sons), `oral.js` (mode à voix haute avec le chapeau), `online.js` + `firebase-config.js` + `database.rules.json` (jeu en ligne), `sw.js` (hors-ligne).
 Après une modification, incrémenter `VERSION` dans `sw.js`.

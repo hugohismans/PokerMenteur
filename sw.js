@@ -1,6 +1,6 @@
 // Cache hors-ligne : incrémente VERSION à chaque mise à jour du jeu.
-const VERSION = 'pm-v25';
-const FILES = ['./', 'index.html', 'style.css', 'game.js', 'faces.js', 'fiches.js', 'app.js', 'oral.js', 'manifest.webmanifest',
+const VERSION = 'pm-v27';
+const FILES = ['./', 'index.html', 'style.css', 'game.js', 'faces.js', 'fiches.js', 'app.js', 'oral.js', 'online.js', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -15,7 +15,8 @@ self.addEventListener('activate', e => {
 
 // Réseau d'abord (pour recevoir les mises à jour), cache si hors-ligne
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  // Seulement les fichiers du jeu : Firebase (base de données, connexion) passe directement par le réseau
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then(res => {

@@ -144,7 +144,7 @@ function animateThrow(idx) {
   vibrate([0, 400, 30, 150, 20]);
   setTimeout(() => {
     S.busy = false;
-    if (S.screen === 'oral') render(); // les dés lancés ne sont plus déplaçables
+    if (S.screen === 'oral' || S.screen === 'onlineRoom') render(); // les dés lancés ne sont plus déplaçables
   }, THROW_MS + idx.length * 90);
 }
 
@@ -232,6 +232,7 @@ const Shake = {
 // La détection n'écoute que lorsqu'un mélange est possible (chapeau fermé, lancer pas encore fait)
 const canShakeMix = () => S.screen === 'oral' && !O.open && hatIdx().length > 0 && !mixLocked() && !S.busy;
 function armShake() {
+  if (S.screen === 'onlineRoom') return; // géré par online.js
   if (shakeOn && canShakeMix()) { if (!Shake.on) Shake.start(() => { if (canShakeMix()) oralShakeHat(); }); }
   else Shake.stop();
 }
@@ -474,6 +475,7 @@ document.addEventListener('input', e => {
 // Après chaque affichage : sauvegarde et animation des fiches
 function afterRender() {
   armShake();
+  if (typeof onlineAfterRender === 'function') onlineAfterRender();
   if (G && GAME_SCREENS.includes(S.screen)) saveGame();
   if (full() && G.anim && S.screen === 'oral') {
     const a = G.anim;

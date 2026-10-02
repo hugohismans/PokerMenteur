@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "publicRooms": {
+      ".read": "auth != null",
+      "$room": { ".write": "auth != null" }
+    },
+    "roomKeys": {
+      "$key": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || !newData.exists())"
+      }
+    },
+    "rooms": {
+      "$room": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "players": {
+          "$uid": { ".write": "auth != null && (auth.uid === $uid || data.exists())" }
+        },
+        "chat": {
+          "$msg": {
+            ".validate": "newData.hasChildren(['uid', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 300 && (newData.child('uid').val() === auth.uid)"
+          }
+        }
+      }
+    }
+  }
+}

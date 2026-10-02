@@ -341,6 +341,8 @@ const actions = {
     S.screen = 'setup'; render();
   },
   diceStyle(s) { setDiceStyle(s); render(); },
+  // Remplacée par online.js une fois chargé ; sans internet, on affiche un message
+  onlineHome() { S.screen = 'online'; render(); },
   mute() {
     S.muted = Sound.muted = !Sound.muted;
     try { localStorage.setItem('pm-muted', S.muted ? '1' : '0'); } catch (e) {}
@@ -482,6 +484,7 @@ function setupHTML() {
     </header>
     ${(() => { const s = savedGame(); return s ? `<button class="btn good big" data-act="oralResume">▶ Reprendre la partie<br><small>${s.G.players.map(p => esc(p.name)).join(', ')}</small></button>` : ''; })()}
     <button class="btn primary big" data-act="oralSetup">🎩 Nouvelle partie</button>
+    <button class="btn big online-btn" data-act="onlineHome">🌐 Jouer en ligne</button>
     <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
     <section class="card">
       <h2>Style des dés</h2>
@@ -547,6 +550,15 @@ function render() {
       break;
     case 'oralSetup':
       html = oralSetupHTML();
+      break;
+    case 'online':
+      html = typeof onlineHomeHTML === 'function' ? onlineHomeHTML()
+        : `<div class="topbar"><button class="icon" data-act="menu" aria-label="Retour">←</button><div class="apptitle">🌐 Jouer en ligne</div></div>
+           <section class="card"><h2>${window.ONLINE_FAILED ? 'Connexion impossible' : 'Chargement…'}</h2>
+           <p>${window.ONLINE_FAILED ? 'Le jeu en ligne n\'a pas pu se charger. Vérifie ta connexion internet puis relance l\'appli.' : 'Un instant…'}</p></section>`;
+      break;
+    case 'onlineRoom':
+      html = onlineRoomHTML();
       break;
     case 'oralWheel':
       html = oralWheelHTML();
@@ -633,7 +645,8 @@ function render() {
     }
   }
   $app.innerHTML = html;
-  $app.dataset.screen = S.screen;
+  // En ligne, la partie utilise la même mise en page que le mode local
+  $app.dataset.screen = S.screen === 'onlineRoom' ? 'oral' : S.screen;
   if (typeof afterRender === 'function') afterRender();
 }
 

@@ -73,9 +73,9 @@ function pokerTableHTML(G) {
   const potName = G.phase === 'charge' ? 'Pot' : 'Milieu';
   const seats = G.players.map((p, i) => {
     const { x, y } = seatPos(i, n);
-    const cls = ['seat', i === G.current ? 'cur' : '', p.out ? 'out' : '', i === G.prev ? 'prev' : ''].join(' ');
+    const cls = ['seat', i === G.current ? 'cur' : '', p.out ? 'out' : '', i === G.prev ? 'prev' : '', p.offline ? 'offline' : ''].join(' ');
     return `<div class="${cls}" id="seat-${i}" style="left:${x}%;top:${y}%">
-      <span class="sname">${i === G.current ? '🎩 ' : ''}${esc(p.name)}</span>
+      <span class="sname">${i === G.current ? '🎩 ' : ''}${p.offline ? '📵 ' : ''}${esc(p.name)}</span>
       <span class="stoks">${p.out ? 'sauvé ✓' : `${tokenSVG(G.tokenType, i * 7)}<b>${p.tokens}</b>`}</span>
     </div>`;
   }).join('');
