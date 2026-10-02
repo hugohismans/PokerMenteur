@@ -17,8 +17,20 @@ const Sound = {
         const d = this.noise.getChannelData(0);
         for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 5);
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+      // Petit son muet : sur iPhone, c'est ce qui « débloque » vraiment le son
+      const s = this.ctx.createBufferSource();
+      s.buffer = this.ctx.createBuffer(1, 1, 22050);
+      s.connect(this.ctx.destination); s.start(0);
     } catch (e) {}
+  },
+  // Après un passage en arrière-plan, iOS laisse souvent le son coupé : on repart d'un contexte neuf
+  // au prochain toucher de l'écran
+  revive() {
+    if (!this.ctx) return;
+    try { this.ctx.close(); } catch (e) {}
+    this.ctx = null;
+    this.init();
   },
   click(vol = 0.5, when = 0) {
     if (this.muted || !this.ctx) return;
@@ -101,6 +113,20 @@ function cupShaking(on) {
   hatShakingNow = on;
   ['cup', 'tblHat'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('shaking', on); });
 }
+
+// Le son revient tout seul : à chaque toucher on vérifie qu'il marche, et après un retour dans l'appli
+// on recrée le moteur de son (iOS le coupe parfois sans prévenir)
+let soundStale = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) soundStale = true;
+  else if (Sound.ctx) Sound.ctx.resume().catch(() => {}); // parfois suffisant, sans attendre un toucher
+});
+window.addEventListener('pageshow', e => { if (e.persisted) soundStale = true; });
+['pointerdown', 'touchend', 'keydown'].forEach(t => document.addEventListener(t, () => {
+  if (!Sound.ctx) return;
+  if (soundStale) { soundStale = false; Sound.revive(); }
+  else if (Sound.ctx.state !== 'running') Sound.init();
+}, { capture: true, passive: true }));
 
 /* ---------- État ---------- */
 function loadSetup() {
