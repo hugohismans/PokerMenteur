@@ -771,6 +771,12 @@ function mapToLocal(x) {
   // Hors de mon tour, les dés sont figés pour moi (O.mixed les rend non touchables)
   O.open = mine && x.open; O.mixed = x.mixed || !mine; O.last = x.last; O.peeked = x.peeked;
   O.hatTap = mine;
+  // Table vue du dessus : dés posés, chapeau devant le joueur en cours, bulle de la dernière annonce
+  G.tableFaces = x.table.map((t, i) => (t ? x.dice[i] : null)).filter(v => v !== null);
+  G.hatAt = x.stage === 'play' ? idx(x.cur) : null;
+  G.hatOpen = x.open;
+  G.claimAt = x.stage === 'play' && x.claim ? idx(x.claimer) : null;
+  G.claimFaces = x.claim;
   O.othersPeek = !mine && x.open ? x.names[x.cur] : null;
   O.rolled = [];
 }

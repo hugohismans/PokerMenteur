@@ -525,3 +525,21 @@ button.hatbtn:active .cup { transform: scale(.94); }
 #app[data-screen="oral"] .infoline .timer, #app[data-screen="oral"] .chip-info { font-size: .78rem; padding: 2px 8px; }
 #app[data-screen="oral"] .who { display: none; }
 #app[data-screen="oral"] .peekzone .hat-close { top: -25px; }
+
+/* ---------- Table vue du dessus animée ---------- */
+.tbl-dice { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); display: flex; gap: 3px; z-index: 1; }
+.tbl-dice .die { --s: 22px; box-shadow: 0 2px 3px rgba(0,0,0,.45); }
+.tbl-dice .die .corner { display: none; }
+.tbl-dice .die.pop { animation: tblpop .5s cubic-bezier(.3,1.6,.5,1); }
+@keyframes tblpop { from { transform: translateY(18px) scale(.3) rotate(-90deg); opacity: 0; } }
+.tbl-hat { position: absolute; width: 40px; transform: translate(-50%, -60%); z-index: 3; pointer-events: none; filter: drop-shadow(0 4px 4px rgba(0,0,0,.55)); transform-origin: 50% 90%; }
+.tbl-hat svg { width: 100%; display: block; }
+.tbl-hat.open { animation: tblhatopen .4s ease-out forwards; }
+@keyframes tblhatopen { to { transform: translate(-50%, -95%) rotate(-24deg); } }
+.tbl-hat.shaking { animation: tblhatshake .12s linear infinite; }
+@keyframes tblhatshake { 0% { transform: translate(-50%, -60%); } 25% { transform: translate(-58%, -66%) rotate(-10deg); } 50% { transform: translate(-44%, -56%) rotate(9deg); } 75% { transform: translate(-54%, -58%) rotate(-6deg); } }
+.tbl-bubble { position: absolute; transform: translate(-50%, calc(-100% - 6px)); z-index: 2; display: flex; gap: 2px; background: #fffdf6; border-radius: 10px; padding: 3px 4px; box-shadow: 0 3px 8px rgba(0,0,0,.5); animation: bubblein .35s ease-out; pointer-events: none; }
+.tbl-bubble::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: #fffdf6; transform: translateX(-50%) rotate(45deg); }
+.tbl-bubble .die { --s: 18px; box-shadow: none; border: 1px solid rgba(0,0,0,.15); }
+.tbl-bubble .die .corner { display: none; }
+@keyframes bubblein { from { transform: translate(-50%, -60%) scale(.5); opacity: 0; } }

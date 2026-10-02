@@ -94,9 +94,12 @@ const Sound = {
   },
 };
 
+let hatShakingNow = false;
 function cupShaking(on) {
-  const cup = document.getElementById('cup');
-  if (cup) cup.classList.toggle('shaking', on);
+  // Le chapeau du tapis et celui posé sur la table vue du dessus tremblent ensemble
+  // (l'état est gardé pour être réappliqué si l'écran est redessiné pendant le mélange)
+  hatShakingNow = on;
+  ['cup', 'tblHat'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('shaking', on); });
 }
 
 /* ---------- État ---------- */

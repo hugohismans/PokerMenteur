@@ -79,8 +79,26 @@ function pokerTableHTML(G) {
       <span class="stoks">${p.out ? 'sauvé ✓' : `${tokenSVG(G.tokenType, i * 7)}<b>${p.tokens}</b>`}</span>
     </div>`;
   }).join('');
+  // Point entre une place et le centre de la table (0 = la place, 1 = le centre)
+  const toward = (i, k) => { const s = seatPos(i, n); return { x: s.x + (50 - s.x) * k, y: s.y + (50 - s.y) * k }; };
+  // Les dés posés sur la table, visibles par tous
+  const tf = G.tableFaces || [];
+  const tableDice = tf.length ? `<div class="tbl-dice">${tf.map((v, k) => `<span class="die f${v}" data-k="${k}">${faceInner(v)}</span>`).join('')}</div>` : '';
+  // Le chapeau, posé devant le joueur dont c'est le tour
+  let hat = '';
+  if (G.hatAt != null && G.hatAt >= 0) {
+    const h = toward(G.hatAt, 0.42);
+    hat = `<div class="tbl-hat ${G.hatOpen ? 'open' : ''}" id="tblHat" data-x="${h.x.toFixed(1)}" data-y="${h.y.toFixed(1)}" style="left:${h.x.toFixed(1)}%;top:${h.y.toFixed(1)}%">${HAT_SVG}</div>`;
+  }
+  // La dernière annonce, dans une bulle près de celui qui l'a faite
+  let bubble = '';
+  if (G.claimAt != null && G.claimAt >= 0 && G.claimFaces && G.claimFaces.length) {
+    const b = toward(G.claimAt, 0.24);
+    bubble = `<div class="tbl-bubble" style="left:${b.x.toFixed(1)}%;top:${b.y.toFixed(1)}%">${sortClaim(G.claimFaces).map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</div>`;
+  }
   return `<div class="ptable">
     <div class="oval">
+      ${tableDice}
       <div class="pot" id="pot">
         ${G.pot ? pileHTML(G.tokenType, G.pot, 20, 3) : ''}
         <span class="pot-lbl">${G.pot ? `${potName} : ${G.pot}` : `${potName} vide`}</span>
@@ -88,7 +106,39 @@ function pokerTableHTML(G) {
     </div>
     <span class="phase ${G.phase}">${phase}</span>
     ${seats}
+    ${bubble}
+    ${hat}
   </div>`;
+}
+
+// Animations de la table après chaque affichage : le chapeau glisse vers le joueur suivant,
+// les dés qu'on vient de poser apparaissent
+let lastHatPos = null, lastTableFaces = null, hatMove = null;
+const HAT_MOVE_MS = 800;
+function animateTable() {
+  const h = document.getElementById('tblHat');
+  if (h) {
+    const to = { x: +h.dataset.x, y: +h.dataset.y };
+    if (lastHatPos && (lastHatPos.x !== to.x || lastHatPos.y !== to.y)) hatMove = { from: lastHatPos, to, t0: performance.now() };
+    // Le chapeau glisse d'une place à l'autre ; si l'écran est redessiné pendant le trajet, il reprend où il en était
+    if (hatMove && hatMove.to.x === to.x && hatMove.to.y === to.y && h.animate) {
+      const el = performance.now() - hatMove.t0;
+      if (el < HAT_MOVE_MS) {
+        const a = h.animate([{ left: `${hatMove.from.x}%`, top: `${hatMove.from.y}%` }, { left: `${to.x}%`, top: `${to.y}%` }],
+          { duration: HAT_MOVE_MS, easing: 'cubic-bezier(.45,0,.2,1)' });
+        a.currentTime = el;
+      } else hatMove = null;
+    } else hatMove = null;
+    lastHatPos = to;
+    if (hatShakingNow) h.classList.add('shaking');
+  } else { lastHatPos = null; hatMove = null; }
+  const cup = document.getElementById('cup');
+  if (cup && hatShakingNow) cup.classList.add('shaking');
+  const dice = [...document.querySelectorAll('.tbl-dice .die')];
+  const faces = dice.map(d => d.className).join('|');
+  if (lastTableFaces !== null && dice.length > lastTableFaces.n) dice.slice(lastTableFaces.n).forEach(d => d.classList.add('pop'));
+  if (lastTableFaces !== null && faces !== lastTableFaces.faces && dice.length === lastTableFaces.n) dice.forEach(d => d.classList.add('pop'));
+  lastTableFaces = document.querySelector('.ptable') ? { n: dice.length, faces } : lastTableFaces;
 }
 
 // Animation d'une fiche qui vole du pot (ou d'un joueur) vers un joueur
