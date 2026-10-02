@@ -594,3 +594,7 @@ button.hatbtn:active .cup { transform: scale(.94); }
   #app[data-screen="oral"] .actions .btn.danger.big small { display: none; }
   #app[data-screen="oral"] .banner.compact { padding: 3px 10px; }
 }
+
+/* Le mélange passe avant toutes les autres animations du chapeau (posé, soulevé…) */
+#cup.shaking { animation: shake .12s linear infinite; }
+#tblHat.shaking { animation: tblhatshake .12s linear infinite; }

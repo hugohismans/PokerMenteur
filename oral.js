@@ -158,12 +158,14 @@ function fakeShake(then, id = 'cup', steps = 7) {
   if (S.busy) return;
   S.busy = true;
   let n = 0;
+  // Le chapeau passe par cupShaking : il continue de trembler même si l'écran est redessiné entre-temps
   const el = () => document.getElementById(id);
-  el() && el().classList.add('shaking');
+  const shake = on => (id === 'cup' ? cupShaking(on) : el() && el().classList.toggle('shaking', on));
+  shake(true);
   const t = setInterval(() => {
     Sound.rattle(); vibrate(10);
     if (++n >= steps) {
-      clearInterval(t); el() && el().classList.remove('shaking'); S.busy = false;
+      clearInterval(t); shake(false); S.busy = false;
       then();
     }
   }, 90);
