@@ -1,6 +1,6 @@
 // Cache hors-ligne : incrémente VERSION à chaque mise à jour du jeu.
-const VERSION = 'pm-v2';
-const FILES = ['./', 'index.html', 'style.css', 'game.js', 'app.js', 'manifest.webmanifest',
+const VERSION = 'pm-v3';
+const FILES = ['./', 'index.html', 'style.css', 'game.js', 'app.js', 'oral.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {

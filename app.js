@@ -1,5 +1,5 @@
 'use strict';
-/* Interface du jeu : écrans, gobelet, secousse, sons. */
+/* Interface du jeu : écrans, chapeau, secousse, sons. */
 
 const $app = document.getElementById('app');
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -152,6 +152,10 @@ function goTo(i) {
 }
 
 function armShake() {
+  if (S.screen === 'oral') {
+    if (hatIdx().length) { if (!Shake.on) Shake.start(oralShakeHat); } else Shake.stop();
+    return;
+  }
   const need = S.screen === 'turn' &&
     (S.phase === 'first' || (S.phase === 'arrange' && S.modes.includes('reroll')));
   if (need) { if (!Shake.on) Shake.start(doRoll); } else Shake.stop();
@@ -362,13 +366,13 @@ document.addEventListener('input', e => {
 });
 
 /* ---------- Rendu ---------- */
-const CUP_SVG = `<svg viewBox="0 0 120 110" aria-hidden="true">
-  <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#4a2511"/><stop offset=".45" stop-color="#9a5a2c"/><stop offset="1" stop-color="#3b1d0c"/></linearGradient></defs>
-  <path d="M28 10 L92 10 L108 96 L12 96 Z" fill="url(#lg)"/>
-  <ellipse cx="60" cy="10" rx="32" ry="6" fill="#2a1408"/>
-  <path d="M12 96 Q60 108 108 96 L108 100 Q60 112 12 100 Z" fill="#c9a227"/>
-  <path d="M22 50 L98 50" stroke="#c9a227" stroke-width="3" opacity=".8"/>
-  <path d="M19 66 L101 66" stroke="#c9a227" stroke-width="1.5" opacity=".6"/>
+const HAT_SVG = `<svg viewBox="0 0 120 110" aria-hidden="true">
+  <defs><linearGradient id="hg" x1="0" x2="1"><stop offset="0" stop-color="#0d0d0d"/><stop offset=".4" stop-color="#3a3a3a"/><stop offset="1" stop-color="#0a0a0a"/></linearGradient></defs>
+  <ellipse cx="60" cy="92" rx="56" ry="13" fill="#111"/>
+  <path d="M30 14 Q60 4 90 14 L86 88 Q60 96 34 88 Z" fill="url(#hg)"/>
+  <ellipse cx="60" cy="14" rx="30" ry="7" fill="#262626"/>
+  <path d="M33 66 Q60 74 87 66 L86 80 Q60 88 34 80 Z" fill="#9b1c22"/>
+  <ellipse cx="60" cy="90" rx="56" ry="11" fill="none" stroke="#2c2c2c" stroke-width="2"/>
 </svg>`;
 
 function dieHTML(v, i, o = {}) {
@@ -408,15 +412,15 @@ function historyHTML() {
     h.map(x => `<li>${esc(S.players[x.who].name)} : ${handName(x.claim)}</li>`).join('')}</ol></details>`;
 }
 
-// Le tapis : dés visibles sur la table + gobelet (fermé ou soulevé)
+// Le tapis : dés visibles sur la table + chapeau (fermé ou soulevé)
 function feltHTML({ open = false, tap = false, shake = false, reveal = false } = {}) {
   const r = S.round, tbl = [], cup = [];
   r.dice.forEach((v, i) => (r.table[i] ? tbl : cup).push(dieHTML(v, i, { tap })));
-  const cupClosed = `<div class="cup ${shake ? 'ready' : ''}" id="cup">${CUP_SVG}<span class="cnt">${cup.length}</span></div>`;
+  const cupClosed = `<div class="cup ${shake ? 'ready' : ''}" id="cup">${HAT_SVG}<span class="cnt">${cup.length}</span></div>`;
   return `<div class="felt">
     <div class="zone"><div class="zl">Sur la table · visibles par tous</div>
       <div class="dice-row">${tbl.join('') || '<span class="empty">aucun dé</span>'}</div></div>
-    <div class="zone"><div class="zl">Sous le gobelet${reveal ? ' · soulevé !' : open ? ' · toi seul les vois' : ''}</div>
+    <div class="zone"><div class="zl">Dans le chapeau${reveal ? ' · soulevé !' : open ? ' · toi seul les vois' : ''}</div>
       ${open
         ? `<div class="dice-row under">${cup.join('') || '<span class="empty">aucun dé</span>'}</div>`
         : `<div class="cup-wrap">${cupClosed}</div>`}
@@ -439,7 +443,7 @@ function arrangeHTML() {
         <button class="chip" data-act="allMode" data-arg="reroll">Tout relancer</button>
         <button class="chip" data-act="allMode" data-arg="cup">Tout garder</button>
       </div>
-      ${n ? `<div class="cup-wrap small">${`<div class="cup ready" id="cup">${CUP_SVG}<span class="cnt">${n}</span></div>`}</div>` : ''}
+      ${n ? `<div class="cup-wrap small">${`<div class="cup ready" id="cup">${HAT_SVG}<span class="cnt">${n}</span></div>`}</div>` : ''}
     </div>
     <div class="actions">
       ${n
@@ -484,8 +488,10 @@ function setupHTML() {
       <h1>Poker Menteur</h1>
       <p>Secoue, cache, bluffe… et démasque les menteurs.</p>
     </header>
-    <section class="card">
-      <h2>Joueurs</h2>
+    <button class="btn primary big" data-act="oralStart">🎩 Jouer</button>
+    <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
+    <details class="card bots">
+      <summary>🤖 Jouer avec les annonces dans l'appli (contre l'ordinateur)</summary>
       ${P.map((p, i) => `<div class="prow">
         <button class="kind" data-act="toggleBot" data-arg="${i}" aria-label="Humain ou ordinateur">${p.bot ? '🤖' : '👤'}</button>
         <input value="${esc(p.name)}" data-name="${i}" maxlength="14" aria-label="Nom">
@@ -499,17 +505,19 @@ function setupHTML() {
         <span>Jetons par joueur</span>
         <div class="stepper"><button class="icon" data-act="lives" data-arg="-1">−</button><b>${S.setup.lives}</b><button class="icon" data-act="lives" data-arg="1">+</button></div>
       </div>
-    </section>
-    <button class="btn primary big" data-act="start">Jouer</button>
+      <button class="btn primary" data-act="start">Jouer avec annonces</button>
+    </details>
     <details class="card rules">
       <summary>Règles du jeu</summary>
-      <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. Avec plusieurs humains, on se passe le téléphone comme le gobelet.</p>
-      <p><b>1.</b> Le premier joueur secoue le téléphone (ou appuie sur Lancer), regarde ses dés en cachette et fait une annonce.</p>
-      <p><b>2.</b> Le joueur suivant voit l'annonce et les dés posés sur la table, mais pas ceux sous le gobelet. Il choisit :</p>
-      <p>• <b>Menteur !</b> On soulève le gobelet. Si les dés valent au moins l'annonce, l'accusateur perd un jeton ; sinon c'est le menteur.</p>
-      <p>• <b>Je te crois</b> : il regarde les dés, choisit pour chacun de le laisser <b>sous le gobelet</b> (caché), de le poser <b>sur la table</b> (visible) ou de le <b>relancer</b>. Puis il doit annoncer <b>plus fort</b> — vrai ou bluff.</p>
+      <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. On se passe le téléphone comme le chapeau. Les annonces se font <b>à voix haute</b> et on a le droit de mentir.</p>
+      <p><b>À ton tour</b>, tu prends le téléphone et tu peux :</p>
+      <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés) ;</p>
+      <p>• <b>🎩 mélanger le chapeau</b> en secouant le téléphone : seuls les dés du chapeau sont relancés ;</p>
+      <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
+      <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ;</p>
+      <p>• puis tu annonces plus fort que le précédent et tu <b>📱 passes</b> le téléphone.</p>
+      <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau et tout le monde voit les dés.</p>
       <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Petite suite (9→R) &lt; Brelan &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
-      <p>Le perdant d'un « menteur » commence la manche suivante. Sans jeton, on est éliminé. Le dernier en jeu gagne.</p>
     </details>
   </div>`;
 }
@@ -519,6 +527,15 @@ function render() {
   switch (S.screen) {
     case 'setup':
       html = setupHTML();
+      break;
+    case 'oral':
+      html = oralHTML();
+      break;
+    case 'oralPass':
+      html = oralPassHTML();
+      break;
+    case 'oralReveal':
+      html = oralRevealHTML();
       break;
 
     case 'handoff':
@@ -559,7 +576,7 @@ function render() {
         html += `${claimBanner()}${arrangeHTML()}`;
       } else if (S.phase === 'announce') {
         html += `${claimBanner()}${feltHTML({ open: true, tap: true })}
-          <p class="hint small">Touche un dé pour le poser sur la table ou le cacher sous le gobelet.</p>
+          <p class="hint small">Touche un dé pour le poser sur la table ou le cacher sous le chapeau.</p>
           ${pickerHTML()}`;
       }
       break;
@@ -571,7 +588,7 @@ function render() {
         <h2 class="shout">« Menteur ! »</h2>
         <p>${pn(R.caller)} accuse ${pn(R.claimer)} qui annonçait <b>${handName(R.claim)}</b>.</p>
         ${feltHTML({ open: true, reveal: true })}
-        <p class="actual">Sous le gobelet : <b>${handName(R.actual)}</b></p>
+        <p class="actual">Dans le chapeau : <b>${handName(R.actual)}</b></p>
         <div class="verdict ${R.truth ? 'truth' : 'lie'}">
           ${R.truth ? `C'était vrai ! ${pn(R.caller)} perd un jeton.` : `C'était du bluff ! ${pn(R.claimer)} perd un jeton.`}
           ${S.players[R.loser].lives <= 0 ? `<br>${pn(R.loser)} est éliminé·e.` : ''}

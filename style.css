@@ -106,7 +106,7 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .cup-wrap { display: grid; place-items: center; }
 .cup { width: 120px; position: relative; transform-origin: 50% 90%; }
 .cup.ready { animation: wobble 1.6s ease-in-out infinite; }
-.cup.shaking { animation: shake .12s linear infinite; }
+.cup.shaking, .shaking { animation: shake .12s linear infinite; }
 .cup-wrap.small .cup { width: 84px; }
 .cup svg { display: block; width: 100%; filter: drop-shadow(0 6px 6px rgba(0,0,0,.5)); }
 .cup .cnt {
@@ -208,3 +208,11 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .verdict.lie { background: rgba(214,69,69,.35); }
 
 @media (min-height: 760px) { #app { gap: 16px; } }
+
+/* ---------- Mode à voix haute ---------- */
+.banner .prev { display: block; font-weight: 600; color: var(--ink); }
+.dice-row.peek { padding: 6px; border-radius: 14px; background: rgba(0,0,0,.25); box-shadow: inset 0 0 0 2px rgba(155,28,34,.6); }
+.btn.danger.armed { animation: pulse .5s ease-in-out infinite alternate; }
+@keyframes pulse { to { transform: scale(1.04); filter: brightness(1.2); } }
+.bots summary { font-weight: 700; cursor: pointer; }
+.setup > .hint { margin-top: -6px; }
