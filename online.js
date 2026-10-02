@@ -120,6 +120,11 @@ async function sweepStaleRooms() {
     const stale = new Set(Object.entries(act).filter(([, a]) => !a || !a.t || now - a.t > STALE_MS).map(([id]) => id));
     // Anciennes entrées publiques sans signe de vie
     Object.entries(pub).forEach(([id, r]) => { if (!act[id] && now - (r.createdAt || 0) > STALE_MS) stale.add(id); });
+    // Entrées publiques dont le salon n'existe plus (salon effacé à la main, par exemple)
+    await Promise.all(Object.keys(pub).filter(id => !stale.has(id)).map(async id => {
+      const meta = (await get(ref(db, `rooms/${id}/meta`))).val();
+      if (!meta) { stale.add(id); }
+    }));
     for (const id of [...stale].slice(0, 30)) await deleteRoom(id);
   } catch (e) {}
 }
@@ -152,7 +157,7 @@ async function joinRoom(id) {
   ON.joinError = '';
   const snap = await get(ref(db, `rooms/${id}`));
   const room = snap.val();
-  if (!room) { ON.joinError = 'Ce salon n\'existe plus.'; return render(); }
+  if (!room) { ON.joinError = 'Ce salon n\'existe plus.'; deleteRoom(id); return render(); }
   const players = room.players || {};
   const inGame = room.game && room.game.order && room.game.order.includes(me);
   // Partie en cours sans y être inscrit : on la regarde en spectateur
