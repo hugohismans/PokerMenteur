@@ -119,7 +119,7 @@ function oralRollTable() {
 
 // Déplace un dé : vers la table (seulement si le chapeau est ouvert) ou vers le chapeau
 function moveDie(i, where) {
-  if (S.busy) return;
+  if (S.busy || O.mixed) return; // une fois le lancer fait, les dés restent où ils sont
   if (where === 'table' && !O.table[i] && O.open) O.table[i] = true;
   else if (where === 'hat' && O.table[i]) O.table[i] = false;
   else return render();
@@ -143,8 +143,8 @@ function animateThrow(idx) {
   });
   vibrate([0, 400, 30, 150, 20]);
   setTimeout(() => {
-    document.querySelectorAll('#tableDice .throw').forEach(e => e.classList.remove('throw'));
     S.busy = false;
+    if (S.screen === 'oral') render(); // les dés lancés ne sont plus déplaçables
   }, THROW_MS + idx.length * 90);
 }
 
@@ -440,11 +440,11 @@ function oralFelt(reveal) {
   const open = reveal || O.open;
   const who = full() ? `${esc(G.players[G.current].name)} seul les voit` : 'toi seul les vois';
   const hatZone = open
-    ? `<div class="dice-row under ${reveal ? '' : 'peek'}" id="cup">${h.map(i => oralDie(i, !reveal)).join('') || '<span class="empty">chapeau vide</span>'}</div>`
+    ? `<div class="dice-row under ${reveal ? '' : 'peek'}" id="cup">${h.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">chapeau vide</span>'}</div>`
     : `<div class="cup-wrap"><div class="cup ${h.length ? 'ready' : ''}" id="cup">${HAT_SVG}<span class="cnt">${h.length}</span></div></div>`;
   return `<div class="felt">
     <div class="zone" data-zone="table"><div class="zl">Sur la table · visibles par tous</div>
-      <div class="dice-row" id="tableDice">${t.map(i => oralDie(i, !reveal)).join('') || '<span class="empty">aucun dé</span>'}</div></div>
+      <div class="dice-row" id="tableDice">${t.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">aucun dé</span>'}</div></div>
     <div class="zone" data-zone="hat"><div class="zl">${reveal ? 'Dans le chapeau · levé !' : open ? `Dans le chapeau · ${who}` : 'Dans le chapeau'}</div>
       ${hatZone}
     </div>
@@ -491,8 +491,8 @@ function lastRollHTML() {
 
 function oralHTML() {
   const t = tableIdx().length, h = hatIdx().length, locked = mixLocked();
-  const mine = O.open ? `<p class="mine">Avec la table : <b>${handName(evaluate(O.dice))}</b> · <small>touche ou fais glisser un dé</small></p>`
-    : t ? '<p class="hint small">Touche ou fais glisser un dé de la table pour le remettre dans le chapeau.</p>' : '';
+  const mine = O.open ? `<p class="mine">Avec la table : <b>${handName(evaluate(O.dice))}</b>${locked ? '' : ' · <small>touche ou fais glisser un dé</small>'}</p>`
+    : t && !locked ? '<p class="hint small">Touche ou fais glisser un dé de la table pour le remettre dans le chapeau.</p>' : '';
   const diceButtons = `<div class="row2">
         <button class="btn" data-act="oralShake" ${h && !locked && !O.open ? '' : 'disabled'}>🎩 Mélanger</button>
         <button class="btn" data-act="oralRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
