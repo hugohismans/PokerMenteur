@@ -510,7 +510,7 @@ function setupHTML() {
       <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. On se passe le téléphone comme le chapeau. Les annonces se font <b>à voix haute</b> et on a le droit de mentir.</p>
       <p><b>À ton tour</b>, tu prends le téléphone et tu peux :</p>
       <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés) ;</p>
-      <p>• <b>🎩 mélanger le chapeau</b> : seuls les dés du chapeau sont relancés ;</p>
+      <p>• <b>🎩 mélanger le chapeau</b> : seuls les dés du chapeau sont relancés. Une seule fois quand le chapeau est ouvert : il faut le refermer (fin du tour) avant de pouvoir remélanger ;</p>
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ;</p>
       <p>• puis tu annonces plus fort que le précédent et tu passes le téléphone au suivant.</p>

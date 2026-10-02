@@ -4,12 +4,15 @@
 const O = {
   dice: [0, 0, 0, 0, 0], table: [false, false, false, false, false],
   open: false, rolled: [], armed: false, armT: null,
+  mixed: false, // déjà mélangé pendant que le chapeau est ouvert (débloqué en le refermant)
+  last: null,   // dernier lancer : { where: 'hat' | 'table', n }
 };
 
 function oralNewRound() {
   O.dice = O.dice.map(rollDie);
   O.table = [false, false, false, false, false];
   O.open = false; O.rolled = []; O.armed = false;
+  O.mixed = false; O.last = null;
   S.screen = 'oral';
   render();
 }
@@ -20,9 +23,11 @@ const tableIdx = () => O.dice.map((_, i) => i).filter(i => O.table[i]);
 function oralShakeHat() {
   if (S.busy) return;
   const idx = hatIdx();
-  if (!idx.length) return;
+  if (!idx.length || (O.open && O.mixed)) return;
   idx.forEach(i => { O.dice[i] = rollDie(); });
   O.rolled = O.open ? idx : [];
+  if (O.open) O.mixed = true;
+  O.last = { where: 'hat', n: idx.length };
   Sound.land(); vibrate([30, 40, 30]);
   render();
 }
@@ -32,6 +37,7 @@ function oralRollTable() {
   if (!idx.length) return;
   idx.forEach(i => { O.dice[i] = rollDie(); });
   O.rolled = [];
+  O.last = { where: 'table', n: idx.length };
   O.throwing = idx;
   render();
   O.throwing = [];
@@ -80,13 +86,14 @@ Object.assign(actions, {
   oralStart() { Sound.init(); oralNewRound(); },
   oralPeek() {
     O.open = !O.open;
+    if (!O.open) O.mixed = false; // refermer le chapeau = fin du tour
     O.rolled = [];
     Sound.init();
     O.open ? Sound.hatOpen() : Sound.hatClose();
     vibrate([40, 70, 40]);
     render();
   },
-  oralShake() { Sound.init(); fakeShake(oralShakeHat); },
+  oralShake() { if (O.open && O.mixed) return; Sound.init(); fakeShake(oralShakeHat); },
   oralRoll() { if (S.busy) return; Sound.init(); oralRollTable(); },
   oralTap(i) {
     if (S.busy) return;
@@ -161,18 +168,24 @@ function oralHTML() {
   const tip = O.open
     ? 'Touche un dé pour le changer de place (chapeau ↔ table).'
     : t ? 'Touche un dé de la table pour le remettre dans le chapeau.' : '';
+  const mixLocked = O.open && O.mixed;
+  const L = O.last;
+  const lastTxt = !L ? 'Nouvelle manche : pas encore de lancer'
+    : L.where === 'hat' ? `🎩 Dernier lancer : <b>chapeau mélangé</b> (${L.n} dé${L.n > 1 ? 's' : ''})`
+    : `🎲 Dernier lancer : <b>${L.n} dé${L.n > 1 ? 's' : ''} lancé${L.n > 1 ? 's' : ''} sur la table</b>`;
   return `${oralBar()}
+    <div class="lastroll ${L ? L.where : ''}">${lastTxt}</div>
     ${oralFelt(false)}
     ${tip ? `<p class="hint small">${tip}</p>` : ''}
     ${O.open ? `<p class="mine">Avec la table : <b>${handName(evaluate(O.dice))}</b></p>` : ''}
     <div class="actions">
       <button class="btn ${O.open ? 'ghost' : ''}" data-act="oralPeek">${O.open ? '🙈 Refermer le chapeau' : '👀 Regarder dans le chapeau'}</button>
       <div class="row2">
-        <button class="btn" data-act="oralShake" ${h ? '' : 'disabled'}>🎩 Mélanger</button>
+        <button class="btn" data-act="oralShake" ${h && !mixLocked ? '' : 'disabled'}>${mixLocked ? '🎩 Déjà mélangé' : '🎩 Mélanger'}</button>
         <button class="btn" data-act="oralRoll" ${t ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
       </div>
       <button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="oralHat">${O.armed ? 'Sûr ? Touche encore' : '🎩 Chapeau !'}</button>
-      ${O.open ? '<p class="hint small">Pense à refermer le chapeau avant de passer le téléphone.</p>' : ''}
+      ${O.open ? `<p class="hint small">${mixLocked ? 'Une seule fois par tour : referme le chapeau et passe le téléphone.' : 'Pense à refermer le chapeau avant de passer le téléphone.'}</p>` : ''}
     </div>`;
 }
 

@@ -240,3 +240,9 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .style-opt.on { border-color: var(--gold); background: rgba(227,179,65,.15); }
 .style-opt .mini { display: flex; gap: 4px; }
 .style-opt .die { --s: 34px; }
+
+/* Dernier lancer (table ou chapeau), utile au joueur suivant */
+.lastroll { text-align: center; padding: 9px 12px; border-radius: 12px; background: var(--card); color: var(--muted); font-size: .95rem; }
+.lastroll b { color: var(--ink); }
+.lastroll.hat { box-shadow: inset 0 0 0 2px rgba(155,28,34,.7); }
+.lastroll.table { box-shadow: inset 0 0 0 2px rgba(227,179,65,.6); }
