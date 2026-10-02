@@ -6,7 +6,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.4.0/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
 import {
   getDatabase, connectDatabaseEmulator, ref, onValue, off, set, update, remove, get, push,
-  runTransaction, onDisconnect, query, orderByChild, limitToLast, serverTimestamp,
+  runTransaction, onDisconnect, query, orderByChild, limitToLast, serverTimestamp, onChildAdded,
 } from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js';
 
 /* ---------- Connexion à Firebase ---------- */
@@ -46,7 +46,7 @@ const MAX_PLAYERS = 8;
 const KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ON = {
   pseudo: '', roomId: null, room: null, unsub: [], publicRooms: [],
-  lastEv: null, wasMyTurn: false, pick: { type: null, claim: null },
+  lastEv: null, wasMyTurn: false, compose: [],
   chat: [], chatOpen: false, unread: 0, pendingRender: false, joinError: '', anim: null,
   wheelSeen: null, wheelDone: false, offset: 0, role: 'player',
 };
@@ -167,7 +167,15 @@ function enterRoom(id, role = 'player') {
     if (!ON.chatOpen && added > 0) ON.unread += added;
     drawChat();
   });
-  ON.unsub = [presence, roomL, chatL];
+  // Projectiles lancés entre joueurs (on ignore ceux d'avant notre arrivée)
+  const since = serverNow() - 1000;
+  const fxL = onChildAdded(query(ref(db, `rooms/${id}/fx`), limitToLast(5)), s => {
+    const v = s.val();
+    if (!v || v.ts < since || S.screen !== 'onlineRoom') return;
+    const el = uid => document.querySelector(`[data-uid="${uid}"]`);
+    playFx(v.kind, el(v.from), el(v.to));
+  });
+  ON.unsub = [presence, roomL, chatL, fxL];
   S.screen = 'onlineRoom';
   render();
 }
@@ -227,7 +235,7 @@ function onRoom(room) {
   handleEvent();
   // Mon tour arrive : petit signal
   const mine = room.game && room.game.stage === 'play' && room.game.cur === me;
-  if (mine && !ON.wasMyTurn) { vibrate([60, 60, 60]); Sound.tone(880, 0.15); Sound.tone(1320, 0.2, 0.12); ON.pick = { type: null, claim: null }; }
+  if (mine && !ON.wasMyTurn) { vibrate([60, 60, 60]); Sound.tone(880, 0.15); Sound.tone(1320, 0.2, 0.12); ON.compose = []; }
   ON.wasMyTurn = mine;
   if (S.screen !== 'onlineRoom') return;
   if (S.busy) { ON.pendingRender = true; return; }
@@ -321,7 +329,7 @@ function passTurn(x, dir) {
 
 // « Chapeau ! » du joueur en cours contre l'annonce du précédent ; renvoie le résumé pour le chat
 function resolveHat(x) {
-  const caller = x.cur, claimer = x.prev, truth = isTrue(x.dice, x.claim);
+  const caller = x.cur, claimer = x.prev, truth = claimTrue(x.dice, x.claim);
   const loser = truth ? caller : claimer, winner = truth ? claimer : caller;
   const actual = evaluate(x.dice);
   let anim, rule;
@@ -343,7 +351,7 @@ function resolveHat(x) {
   setDeadline(x, turnSecs() ? REVEAL_SECS : 0);
   x.msg = rule;
   x.ev = ev('hat', { anim });
-  return `🎩 ${x.names[caller]} dit chapeau à ${x.names[claimer]} (${handName(x.claim)}) : il y avait ${handName(actual)}. ${x.names[loser]} perd.`;
+  return `🎩 ${x.names[caller]} dit chapeau à ${x.names[claimer]} (${claimName(x.claim)}) : il y avait ${handName(actual)}. ${x.names[loser]} perd.`;
 }
 
 // Après la révélation : manche suivante, début de la décharge ou fin de partie
@@ -372,14 +380,14 @@ function onTimeout(x) {
   if (x.stage !== 'play') return false;
   const who = x.cur;
   if (!x.announced) {
-    const c = claimsAbove(x.claim)[0];
+    const c = minClaimAbove(x.claim);
     if (!c) { ON.timeoutSummary = resolveHat(x); return; } // plus d'annonce possible : chapeau automatique
     x.claim = c; x.claimer = who; x.announced = true;
   }
   const claim = x.claim;
   passTurn(x, x.phase === 'decharge' ? x.dir : (x.roundDir || 1));
-  x.msg = `⏱ Temps écoulé pour ${B(who)} : annonce automatique <span class="claim-inline">${handName(claim)}</span>. ` + x.msg;
-  ON.timeoutSummary = `⏱ Temps écoulé pour ${x.names[who]} : annonce automatique ${handName(claim)}.`;
+  x.msg = `⏱ Temps écoulé pour ${B(who)} : annonce automatique <span class="claim-inline">${claimName(claim)}</span>. ` + x.msg;
+  ON.timeoutSummary = `⏱ Temps écoulé pour ${x.names[who]} : annonce automatique ${claimName(claim)}.`;
 }
 
 // Chaque joueur connecté surveille le temps ; la transaction garantit qu'un seul applique l'action
@@ -499,11 +507,12 @@ Object.assign(actions, {
   },
 
   onPeek() {
+    if (!canPeek(g())) return;
     const wasOpen = !!(g() && g().open);
     wasOpen ? Sound.hatClose() : Sound.hatOpen();
     vibrate([40, 70, 40]);
     mutate(x => {
-      if (!myTurn(x)) return false;
+      if (!myTurn(x) || !canPeek(x)) return false;
       x.open = !x.open;
       if (x.open) x.peeked = true;
       x.ev = ev('peek', { open: x.open });
@@ -535,18 +544,25 @@ Object.assign(actions, {
       y.ev = ev('throw', { idx });
     });
   },
-  onType(t) { ON.pick.type = +t; ON.pick.claim = null; render(); },
-  onPick(sc) { ON.pick.claim = ALL_CLAIMS.find(c => score(c) === +sc); Sound.click(0.3); render(); },
+  cAdd(v) { if (ON.compose.length < 5) { ON.compose.push(+v); Sound.click(0.35); render(); } },
+  cDel(i) { ON.compose.splice(+i, 1); Sound.click(0.25); render(); },
+  cClear() { ON.compose = []; render(); },
   onAnnounce() {
-    const c = ON.pick.claim, x = g();
-    if (!c || !myTurn(x) || x.announced || (x.claim && score(c) <= score(x.claim))) return;
+    const c = ON.compose.slice(), x = g();
+    if (!c.length || !myTurn(x) || x.announced || (x.claim && cmpClaims(c, x.claim) <= 0)) return;
+    let passed = true;
     mutate(y => {
-      if (!myTurn(y) || y.announced || (y.claim && score(c) <= score(y.claim))) return false;
-      y.claim = c; y.claimer = me; y.announced = true;
-      y.msg = `${B(me)} annonce <span class="claim-inline">${handName(c)}</span>.`;
-      y.ev = ev('announce');
+      if (!myTurn(y) || y.announced || (y.claim && cmpClaims(c, y.claim) <= 0)) return false;
+      y.claim = sortClaim(c); y.claimer = me; y.announced = true; y.open = false;
+      const said = `${B(me)} annonce <span class="claim-inline">${claimName(c)}</span>.`;
+      // Le tour passe tout seul, sauf s'il faut d'abord choisir le sens (début de la charge)
+      const needDir = y.phase === 'charge' && y.roundDir == null && nextActive(y, me, 1) !== nextActive(y, me, -1);
+      if (needDir) { passed = false; y.msg = said; y.ev = ev('announce'); return; }
+      passTurn(y, y.phase === 'decharge' ? y.dir : (y.roundDir || 1));
+      y.msg = `${said} ${y.msg}`;
     });
-    sysChat(`📣 ${ON.pseudo} annonce : ${handName(c)}`);
+    ON.compose = [];
+    sysChat(`📣 ${ON.pseudo} annonce : ${claimName(c)}`);
   },
   onPass(dir) {
     mutate(x => {
@@ -606,6 +622,19 @@ Object.assign(actions, {
     if (input && !txt) input.value = '';
   },
 });
+
+// Toucher un joueur : lui lancer quelque chose (visible par tout le salon)
+const localSeatTap = actions.seatTap;
+actions.seatTap = arg => {
+  if (S.screen !== 'onlineRoom') return localSeatTap && localSeatTap(arg);
+  const x = g(), lobby = !x || ON.room.meta.status === 'lobby';
+  const uid = lobby ? arg : x.order[+arg];
+  if (!uid || uid === me) return;
+  openFxMenu(nameOf(uid).replace(/&amp;/g, '&'), kind => push(roomRef('fx'), { from: me, to: uid, kind, ts: serverNow() }));
+};
+
+// Au début de la manche (aucun lancer encore), il faut mélanger avant de regarder
+const canPeek = x => myTurn(x) && (x.open || x.last != null);
 
 const canCallHat = x => myTurn(x) && x.claim && x.prev && !x.peeked && !x.mixed && !x.announced;
 
@@ -724,7 +753,7 @@ function lobbyHTML() {
   const n = list.length;
   const seats = list.map(([u, p], i) => {
     const { x, y } = seatPos(i, Math.max(n, 2));
-    return `<div class="seat ${u === m.host ? 'cur' : ''} ${p.online === false ? 'offline' : ''}" style="left:${x}%;top:${y}%">
+    return `<div class="seat ${u === m.host ? 'cur' : ''} ${p.online === false ? 'offline' : ''}" style="left:${x}%;top:${y}%" data-uid="${u}" data-act="seatTap" data-arg="${u}">
       <span class="sname">${u === m.host ? '👑 ' : ''}${esc(p.name)}</span><span class="stoks">${u === me ? 'toi' : p.online === false ? '📵' : 'prêt'}</span></div>`;
   }).join('');
   const host = isHost(), spectator = !P[me];
@@ -738,6 +767,7 @@ function lobbyHTML() {
       <span class="phase">${m.public ? '🌍 Public' : '🔒 Privé'}</span>
     </div>
     <p class="gmsg">${n < 2 ? 'En attente d\'autres joueurs…' : `${n} joueur${n > 1 ? 's' : ''} dans le salon.`} ${host ? '' : `En attente que ${esc((P[m.host] || {}).name || 'le maître du salon')} lance la partie.`}${spect.length ? ` · 👀 ${spect.length} spectateur${spect.length > 1 ? 's' : ''}` : ''}</p>
+    <p class="hint small">💡 Touche un joueur pour lui lancer une tomate, des fleurs…</p>
     ${spectator ? `<button class="btn good big" data-act="onSit" ${n >= MAX_PLAYERS ? 'disabled' : ''}>🪑 S'asseoir à la table</button>` : ''}
     <section class="card"><h2>⏱ Temps par tour</h2>
       ${host ? `<div class="types">${timeOpts.map(([v, l]) => `<button class="chip ${tt === v ? 'on' : ''}" data-act="onTurnTime" data-arg="${v}">${l}</button>`).join('')}</div>
@@ -754,21 +784,30 @@ function lobbyHTML() {
       <button class="btn primary big" data-act="onStart" ${n < 2 ? 'disabled' : ''}>🎲 Lancer la partie</button>` : ''}`;
 }
 
+// Petits dés pour afficher une annonce
+const miniDice = faces => `<span class="mini-dice">${sortClaim(faces).map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</span>`;
+
+// « Qu'annonces-tu ? » : on touche les dés à annoncer (1 à 5), l'appli en déduit la combinaison
 function claimPickerHTML(x) {
-  const above = claimsAbove(x.claim), actual = evaluate(x.dice);
-  if (!above.length) return '<p class="hint">Plus aucune annonce possible : dis « Chapeau ! ».</p>';
-  if (ON.pick.type == null || !above.some(c => c.t === ON.pick.type)) {
-    ON.pick.type = (actual.t > 0 && above.some(c => c.t === actual.t)) ? actual.t : above[0].t;
-  }
-  const types = TYPE_ORDER.map(t => `<button class="chip ${ON.pick.type === t ? 'on' : ''}" data-act="onType" data-arg="${t}" ${above.some(c => c.t === t) ? '' : 'disabled'}>${TYPE_NAMES[t]}</button>`).join('');
-  const label = c => c.t === 2 ? `${PLURAL[c.a]} + ${PLURAL[c.b]}` : c.t === 6 ? `${PLURAL[c.a]} par ${PLURAL[c.b]}` : (c.t === 4 || c.t === 5) ? TYPE_NAMES[c.t] : PLURAL[c.a];
-  const pick = ON.pick.claim;
-  const vals = above.filter(c => c.t === ON.pick.type).map(c => `<button class="val ${pick && score(pick) === score(c) ? 'on' : ''} ${score(c) <= score(actual) ? 'true' : ''}" data-act="onPick" data-arg="${score(c)}">${label(c)}</button>`).join('');
-  const bluff = pick && score(pick) > score(actual);
-  return `<div class="picker">
-    <div class="types">${types}</div>
-    <div class="vals ${ON.pick.type === 6 || ON.pick.type === 2 ? 'wide' : ''}">${vals}</div>
-    <button class="btn primary" data-act="onAnnounce" ${pick ? '' : 'disabled'}>${pick ? `📣 Annoncer : ${handName(pick)} ${bluff ? '<span class="tag">bluff 😏</span>' : ''}` : 'Choisis ton annonce'}</button>
+  if (!minClaimAbove(x.claim)) return '<p class="hint">Plus aucune annonce possible : dis « Chapeau ! ».</p>';
+  const c = ON.compose;
+  const ok = c.length && (!x.claim || cmpClaims(c, x.claim) > 0);
+  const bluff = c.length && cmpClaims(c, x.dice) > 0;
+  const chosen = sortClaim(c);
+  const slots = Array.from({ length: 5 }, (_, k) => k < chosen.length
+    ? `<button class="die f${chosen[k]}" data-act="cDel" data-arg="${c.indexOf(chosen[k])}" aria-label="Retirer">${faceInner(chosen[k])}</button>`
+    : '<span class="slot"></span>').join('');
+  return `<div class="picker compose">
+    <div class="mine">📣 Qu'annonces-tu ?</div>
+    <div class="slots">${slots}</div>
+    <div class="cname ${c.length && !ok ? 'bad' : ''}">${!c.length ? 'Touche les dés à annoncer (1 à 5)'
+      : ok ? `${claimName(c)} ${bluff ? '<span class="tag">bluff 😏</span>' : ''}`
+      : `${claimName(c)} : trop faible, il faut dépasser ${claimName(x.claim)}`}</div>
+    <div class="facebar">${[0, 1, 2, 3, 4, 5].map(v => `<button class="die f${v}" data-act="cAdd" data-arg="${v}" ${c.length >= 5 ? 'disabled' : ''}>${faceInner(v)}</button>`).join('')}</div>
+    <div class="row2">
+      <button class="btn ghost" data-act="cClear" ${c.length ? '' : 'disabled'}>Effacer</button>
+      <button class="btn primary" data-act="onAnnounce" ${ok ? '' : 'disabled'}>📣 Annoncer</button>
+    </div>
   </div>`;
 }
 
@@ -777,7 +816,7 @@ function playHTML(x) {
   const spect = Object.values(ON.room.spectators || {}).length;
   const info = `<div class="infoline">${timerHTML(x)}${!x.order.includes(me) ? '<span class="tag-spec">👀 Tu regardes</span>' : ''}${spect ? `<span class="spec-n">👀 ${spect}</span>` : ''}</div>`;
   const claimBanner = x.claim
-    ? `<div class="banner"><small>Annonce de ${B(x.claimer)}</small><strong>${handName(x.claim)}</strong></div>`
+    ? `<div class="banner"><small>Annonce de ${B(x.claimer)}</small><strong>${claimName(x.claim)}</strong>${miniDice(x.claim)}</div>`
     : '<div class="banner muted">Pas encore d\'annonce dans cette manche</div>';
   let body;
   if (!mine) {
@@ -787,19 +826,21 @@ function playHTML(x) {
     body = `${lastRollHTML()}${oralFelt(false)}<div class="waiting">${spinningHat()}<p>${doing}</p></div>`;
   } else {
     const t = tableDiceIdx(x).length, h = hatDice(x).length, locked = x.mixed;
-    const peek = x.open ? '<button class="btn ghost" data-act="onPeek">🙈 Refermer le chapeau</button>' : '<button class="btn" data-act="onPeek">👀 Regarder dans le chapeau</button>';
+    const peek = x.open ? '<button class="btn ghost" data-act="onPeek">🙈 Refermer le chapeau</button>'
+      : canPeek(x) ? '<button class="btn" data-act="onPeek">👀 Regarder dans le chapeau</button>'
+      : '<button class="btn" data-act="onPeek" disabled>👀 Mélange d\'abord pour regarder</button>';
     const dice = `<div class="row2">
         <button class="btn" data-act="onShake" ${h && !locked && !x.open ? '' : 'disabled'}>🎩 Mélanger</button>
         <button class="btn" data-act="onRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
       </div>
-      <p class="hint small">${locked ? '✓ Lancer fait : un seul par tour.' : x.open ? 'Pour mélanger, referme d\'abord le chapeau.' : 'Un seul lancer par tour : mélanger le chapeau ou lancer la table.'}</p>`;
+      <p class="hint small">${locked ? '✓ Lancer fait : un seul par tour.' : x.open ? 'Pour mélanger, referme d\'abord le chapeau.' : x.last == null ? 'Début de manche : mélange le chapeau avant de regarder.' : 'Un seul lancer par tour : mélanger le chapeau ou lancer la table.'}</p>`;
     let pass = '';
     if (x.announced) {
       const d = x.phase === 'decharge' ? x.dir : x.roundDir;
       const cw = nextActive(x, me, 1), ccw = nextActive(x, me, -1), dis = x.open ? 'disabled' : '';
       pass = (d != null || cw === ccw)
         ? `<button class="btn primary" data-act="onPass" data-arg="${d || 1}" ${dis}>📱 Passer à ${nameOf(nextActive(x, me, d || 1))} ${(d || 1) === 1 ? '↻' : '↺'}</button>`
-        : `<p class="hint small">À qui tu passes ? Ça fixe le sens pour toute la manche.</p>
+        : `<p class="hint small">À qui tu passes le chapeau ? Ça fixe le sens pour toute la manche.</p>
            <div class="row2"><button class="btn primary" data-act="onPass" data-arg="1" ${dis}>📱 ↻ ${nameOf(cw)}</button><button class="btn primary" data-act="onPass" data-arg="-1" ${dis}>${nameOf(ccw)} ↺ 📱</button></div>`;
       if (x.open) pass += '<p class="hint small">Referme le chapeau pour passer.</p>';
     }
@@ -813,7 +854,7 @@ function playHTML(x) {
         ${hat}
         ${peek}
         ${dice}
-        ${x.announced ? `<p class="mine">Tu as annoncé : <b>${handName(x.claim)}</b></p>${pass}` : claimPickerHTML(x)}
+        ${x.announced ? `<p class="mine">Tu as annoncé : <b>${claimName(x.claim)}</b></p>${pass}` : claimPickerHTML(x)}
       </div>`;
   }
   return `${onlineTopbar('🎩 ' + esc(ON.room.meta.name))}
@@ -831,7 +872,7 @@ function revealHTML(x) {
     ${pokerTableHTML(G)}
     <div class="reveal">
       <h2 class="shout">« Chapeau ! »</h2>
-      <p>${B(r.caller)} ne croit pas ${B(r.claimer)}, qui annonçait <b>${handName(r.claim)}</b>.</p>
+      <p>${B(r.caller)} ne croit pas ${B(r.claimer)}, qui annonçait <b>${claimName(r.claim)}</b>.</p>${miniDice(r.claim)}
       ${oralFelt(true)}
       <p class="actual">Il y a : <b>${handName(r.actual)}</b></p>
       <div class="verdict ${r.truth ? 'truth' : 'lie'}">${r.truth ? `C'était vrai ! ${B(r.loser)} a perdu.` : `C'était du bluff ! ${B(r.loser)} a perdu.`}<br><small>${x.msg}</small></div>
@@ -917,6 +958,8 @@ window.onlineRoomHTML = () => {
 // Après l'affichage : dés qui roulent, fiche qui vole, secousse
 window.onlineAfterRender = () => {
   if (S.screen !== 'onlineRoom') return;
+  const gx = g();
+  if (gx && ON.room.meta.status !== 'lobby') gx.order.forEach((u, i) => { const s = document.getElementById(`seat-${i}`); if (s) s.dataset.uid = u; });
   window.onlineArmShake();
   if (ON.throwPending) {
     const idx = ON.throwPending;
@@ -971,7 +1014,7 @@ window.ON_DEBUG = () => {
   if (!x) return { stage: ON.room ? 'lobby' : null };
   return {
     stage: x.stage, mine: myTurn(x), deadline: x.deadline, left: x.deadline ? Math.round((x.deadline - serverNow()) / 1000) : null,
-    spectator: !x.order.includes(me), cur: x.names[x.cur], claim: x.claim ? handName(x.claim) : null, canHat: !!canCallHat(x), chooser: x.stage === 'dir' && x.dirChooser === me,
+    spectator: !x.order.includes(me), cur: x.names[x.cur], claim: x.claim ? claimName(x.claim) : null, claimRaw: x.claim, canPeek: canPeek(x), announced: x.announced, canHat: !!canCallHat(x), chooser: x.stage === 'dir' && x.dirChooser === me,
     summary: `${x.phase} pot=${x.pot} ` + x.order.map(u => `${x.names[u]}:${x.tokens[u] || 0}${x.out[u] ? '✓' : ''}`).join(' '),
   };
 };

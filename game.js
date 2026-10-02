@@ -120,3 +120,77 @@ const Bot = {
 if (typeof module !== 'undefined') {
   module.exports = { TYPE_ORDER, FACES, H, score, evaluate, handName, ALL_CLAIMS, claimsAbove, isTrue, probAtLeast, Bot };
 }
+
+/* ---------- Annonces libres (jeu en ligne) : de 1 à 5 dés choisis ---------- */
+// Une annonce est une liste de faces (0..5). Les dés en plus de la combinaison départagent :
+// « Brelan de Rois, As, 9 » < « Brelan de Rois, As, 10 ». Il manque un dé = le plus faible possible.
+
+function groupsOf(faces) {
+  const c = [0, 0, 0, 0, 0, 0];
+  faces.forEach(v => c[v]++);
+  const g = [];
+  for (let v = 5; v >= 0; v--) if (c[v]) g.push({ v, n: c[v] });
+  g.sort((x, y) => y.n - x.n || y.v - x.v);
+  return { c, g };
+}
+
+// Analyse : type de combinaison, valeurs principales, dés en plus (du plus fort au plus faible)
+function claimParts(faces) {
+  const n = faces.length, { c, g } = groupsOf(faces);
+  const rest = used => faces.filter(v => !used.includes(v)).sort((a, b) => b - a);
+  if (g[0].n === 5) return { t: 8, main: [g[0].v], kick: [] };
+  if (g[0].n === 4) return { t: 7, main: [g[0].v], kick: rest([g[0].v]) };
+  if (g[0].n === 3 && g[1] && g[1].n === 2) return { t: 6, main: [g[0].v, g[1].v], kick: [] };
+  if (n === 5 && g.length === 5 && (!c[5] || !c[0])) return { t: !c[5] ? 4 : 5, main: [], kick: [] };
+  if (g[0].n === 3) return { t: 3, main: [g[0].v], kick: rest([g[0].v]) };
+  if (g[0].n === 2 && g[1] && g[1].n === 2) return { t: 2, main: [g[0].v, g[1].v], kick: rest([g[0].v, g[1].v]) };
+  if (g[0].n === 2) return { t: 1, main: [g[0].v], kick: rest([g[0].v]) };
+  return { t: 0, main: [], kick: faces.slice().sort((a, b) => b - a) };
+}
+
+const DICE_USED = [0, 2, 4, 3, 5, 5, 5, 4, 5]; // dés pris par chaque type de combinaison
+function claimKey(faces) {
+  const p = claimParts(faces);
+  const kick = p.kick.slice();
+  while (kick.length < 5 - DICE_USED[p.t]) kick.push(-1);
+  return [TYPE_RANK[p.t], ...p.main, ...kick];
+}
+function cmpClaims(a, b) {
+  const ka = claimKey(a), kb = claimKey(b);
+  for (let i = 0; i < Math.max(ka.length, kb.length); i++) {
+    const d = (ka[i] ?? -1) - (kb[i] ?? -1);
+    if (d) return d;
+  }
+  return 0;
+}
+const claimTrue = (dice, faces) => cmpClaims(dice, faces) >= 0;
+
+function claimName(faces) {
+  if (!faces || !faces.length) return '';
+  const p = claimParts(faces);
+  const extra = p.kick.map(v => FACE_NAMES[v]).join(', ');
+  if (p.t === 0) return extra;
+  const base = handName(H(p.t, p.main[0] || 0, p.main[1] || 0));
+  return extra ? `${base}, ${extra}` : base;
+}
+// Faces dans l'ordre d'affichage : la combinaison d'abord, puis les dés en plus
+function sortClaim(faces) {
+  const { c } = groupsOf(faces);
+  return faces.slice().sort((a, b) => c[b] - c[a] || b - a);
+}
+
+// Toutes les annonces possibles (1 à 5 dés), de la plus faible à la plus forte
+const ALL_FREE_CLAIMS = (() => {
+  const out = [];
+  const rec = (start, cur) => {
+    if (cur.length) out.push(cur.slice());
+    if (cur.length === 5) return;
+    for (let v = start; v < 6; v++) { cur.push(v); rec(v, cur); cur.pop(); }
+  };
+  rec(0, []);
+  return out.sort(cmpClaims);
+})();
+// La plus petite annonce qui dépasse la précédente (null s'il n'y en a plus)
+const minClaimAbove = prev => (!prev ? ALL_FREE_CLAIMS[0] : ALL_FREE_CLAIMS.find(c => cmpClaims(c, prev) > 0) || null);
+
+if (typeof module !== 'undefined') Object.assign(module.exports, { claimKey, cmpClaims, claimTrue, claimName, sortClaim, minClaimAbove, ALL_FREE_CLAIMS });

@@ -522,19 +522,21 @@ function setupHTML() {
       <summary>Règles du jeu</summary>
       <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. On se passe le téléphone comme le chapeau. Les annonces se font <b>à voix haute</b> et on a le droit de mentir.</p>
       <p><b>À ton tour</b>, tu prends le téléphone et tu peux :</p>
-      <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés), quand tu veux et autant de fois que tu veux ;</p>
+      <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés), autant de fois que tu veux. En début de manche, on mélange d'abord ;</p>
       <p>• <b>🎩 mélanger le chapeau</b> (chapeau fermé) : seuls les dés du chapeau sont relancés ;</p>
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
       <p>• <b>un seul lancer par tour</b> : soit on mélange le chapeau, soit on lance la table ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ou en les faisant glisser, <b>avant</b> ton lancer : une fois le lancer fait, les dés ne bougent plus ;</p>
       <p>• puis tu annonces plus fort que le précédent, tu refermes le chapeau et tu <b>passes</b> le téléphone.</p>
       <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>, mais seulement <b>avant</b> d'avoir regardé dans le chapeau ou lancé : regarder, c'est accepter. On lève le chapeau, tout le monde voit les dés, et on indique <b>qui a perdu</b>.</p>
+      <p><b>En ligne</b>, on annonce en touchant les dés (de 1 à 5) : l'appli en déduit la combinaison. Les dés en plus départagent : après « Brelan de Rois, As, 9 », il faut au moins « Brelan de Rois, As, 10 ». Après l'annonce, le tour passe tout seul.</p>
       <p><b>Deux modes :</b> <b>Simple</b> (seulement les dés et le chapeau, vos fiches sont sur la vraie table) ou <b>Complet</b> (l'appli gère les joueurs et les fiches).</p>
       <p><b>Les fiches (mode complet) :</b> au départ, il y a 2 × le nombre de joueurs + 1 fiches au milieu de la table. Une roue tire au sort qui commence.</p>
       <p>• <b>La charge</b> : le perdant prend une fiche du pot. Au début de chaque manche, le premier qui passe le téléphone choisit le sens : à sa gauche, on tourne dans le sens des aiguilles d'une montre ; à sa droite, dans l'autre sens.</p>
       <p>• <b>La décharge</b> commence quand le pot est vide. Ceux qui n'ont aucune fiche sont sauvés. Le dernier perdant choisit le sens du jeu, qui ne change plus. Le gagnant remet une de ses fiches au milieu de la table.</p>
+      <p><b>Pour rire :</b> touche un joueur autour de la table pour lui lancer une tomate, des fleurs, un bisou…</p>
       <p>Le but : ne plus avoir de fiches. Le dernier qui en a encore a perdu la partie. Le perdant commence toujours la manche suivante.</p>
-      <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Petite suite (9→R) &lt; Brelan &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
+      <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Petite suite (9→R) &lt; Brelan &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9). Une annonce est vraie si les dés valent <b>au moins</b> l'annonce : on peut sous-annoncer (dire un full avec un carré) sans mentir.</p>
     </details>
   </div>`;
 }

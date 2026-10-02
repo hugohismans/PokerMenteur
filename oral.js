@@ -405,6 +405,7 @@ Object.assign(actions, {
 
   oralPeek() {
     if (S.busy) return;
+    if (!O.open && O.last == null) return; // début de manche : on mélange avant de regarder
     O.open = !O.open;
     if (O.open) O.peeked = true;
     O.rolled = [];
@@ -555,6 +556,7 @@ function hatButton(target) {
 
 function peekButton(label) {
   if (O.open) return '<button class="btn ghost" data-act="oralPeek">🙈 Refermer le chapeau</button>';
+  if (O.last == null) return '<button class="btn" data-act="oralPeek" disabled>👀 Mélange d\'abord pour regarder</button>';
   return `<button class="btn" data-act="oralPeek">${label}</button>`;
 }
 

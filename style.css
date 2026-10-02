@@ -399,3 +399,46 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .timer { background: rgba(0,0,0,.35); border-radius: 99px; padding: 3px 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .timer.urgent { background: var(--red); animation: pulse .5s ease-in-out infinite alternate; }
 .tag-spec, .spec-n { background: rgba(31,90,153,.6); border-radius: 99px; padding: 3px 10px; font-size: .85rem; font-weight: 600; }
+
+/* ---------- Projectiles entre joueurs ---------- */
+.seat, .pchip { cursor: pointer; }
+#fxMenu { position: fixed; inset: 0; z-index: 70; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); padding: 16px; }
+#fxMenu.open { display: flex; }
+.fx-card { width: min(100%, 420px); background: #13261d; border: 2px solid var(--wood); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 12px; animation: slideup .22s ease-out;
+  margin-bottom: env(safe-area-inset-bottom); }
+.fx-head { text-align: center; font-size: 1.05rem; }
+.fx-head b { color: var(--gold); }
+.fx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fx-grid button { background: rgba(255,255,255,.08); border-radius: 14px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.fx-grid button:active { transform: scale(.94); }
+.fx-grid span { font-size: 2rem; line-height: 1.1; }
+.fx-grid small { font-size: .75rem; color: var(--muted); font-weight: 600; }
+.fx-card .btn.sm { align-self: center; }
+.fx-proj { position: fixed; left: 0; top: 0; z-index: 80; font-size: 2.2rem; pointer-events: none; filter: drop-shadow(0 6px 6px rgba(0,0,0,.5)); }
+.fx-hit { animation: fxhit .5s ease-out; }
+@keyframes fxhit { 0%, 100% { transform: translate(-50%, -50%); } 20% { transform: translate(-50%, -50%) translate(-6px, 3px) rotate(-6deg) scale(1.12); } 45% { transform: translate(-50%, -50%) translate(5px, -2px) rotate(5deg); } 70% { transform: translate(-50%, -50%) translate(-3px, 1px); } }
+.pchip.fx-hit { animation: fxhitchip .5s ease-out; }
+@keyframes fxhitchip { 20% { transform: rotate(-8deg) scale(1.15); } 50% { transform: rotate(6deg); } }
+.fx-burst { position: fixed; z-index: 81; width: 0; height: 0; pointer-events: none; }
+.fx-burst .blob { position: absolute; left: -36px; top: -30px; width: 72px; height: 60px; background: var(--c); border-radius: 46% 54% 42% 58% / 52% 40% 60% 48%;
+  opacity: .9; animation: blob 1.5s ease-out forwards; box-shadow: inset -6px -6px 0 rgba(0,0,0,.15); }
+@keyframes blob { 0% { transform: scale(.2); } 15% { transform: scale(1.15); } 30% { transform: scale(1); opacity: .9; } 100% { transform: scale(1) translateY(10px); opacity: 0; } }
+.fx-burst .drop { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c);
+  animation: drop .7s ease-out forwards; }
+@keyframes drop { to { transform: rotate(var(--a)) translateX(var(--d)) scale(.5); opacity: 0; } }
+.fx-burst span { position: absolute; left: -12px; top: -12px; font-size: 1.5rem; animation: burst 1.2s ease-out forwards; }
+@keyframes burst { 0% { transform: rotate(var(--a)) translateX(0) scale(.4); opacity: 1; } 100% { transform: rotate(var(--a)) translateX(var(--d)) scale(1.1); opacity: 0; } }
+@keyframes slideup { from { transform: translateY(40px); opacity: 0; } }
+
+/* Annonce en touchant les dés (en ligne) */
+.mini-dice { display: flex; gap: 4px; justify-content: center; margin-top: 6px; }
+.mini-dice .die { --s: 30px; }
+.compose .slots { display: flex; gap: 6px; justify-content: center; min-height: 50px; }
+.compose .slots .die { --s: 48px; }
+.compose .slot { width: 48px; height: 48px; border-radius: 22%; border: 2px dashed rgba(255,255,255,.25); }
+.compose .cname { text-align: center; font-weight: 700; color: var(--gold); min-height: 1.4em; }
+.compose .cname.bad { color: #ff9a9a; }
+.facebar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; justify-items: center; background: rgba(0,0,0,.25); border-radius: 14px; padding: 8px 6px; }
+.facebar .die { --s: min(13vw, 52px); }
+.facebar .die:active:not(:disabled) { transform: scale(.9); }
+.facebar .die:disabled { opacity: .35; }
