@@ -52,14 +52,16 @@ function oralRollTable() {
   render();
 }
 
-function fakeShake(then) {
+// Anime l'élément secoué (le chapeau ou les dés de la table) avant de lancer
+function fakeShake(then, id = 'cup', steps = 7) {
   if (S.busy) return;
   S.busy = true; Shake.stop();
   let n = 0;
-  cupShaking(true);
+  const el = () => document.getElementById(id);
+  el() && el().classList.add('shaking');
   const t = setInterval(() => {
     Sound.rattle(); vibrate(10);
-    if (++n >= 7) { clearInterval(t); cupShaking(false); S.busy = false; then(); }
+    if (++n >= steps) { clearInterval(t); el() && el().classList.remove('shaking'); S.busy = false; then(); }
   }, 90);
 }
 
@@ -73,7 +75,7 @@ Object.assign(actions, {
     render();
   },
   oralShake() { Sound.init(); fakeShake(oralShakeHat); },
-  oralRoll() { Sound.init(); fakeShake(oralRollTable); },
+  oralRoll() { Sound.init(); fakeShake(oralRollTable, 'tableDice', 4); },
   oralTap(i) {
     i = +i;
     if (O.table[i]) { O.table[i] = false; O.log.back++; }
@@ -134,7 +136,7 @@ function oralFelt(reveal) {
     : `<div class="cup-wrap"><div class="cup ${h.length ? 'ready' : ''}" id="cup">${HAT_SVG}<span class="cnt">${h.length}</span></div></div>`;
   return `<div class="felt">
     <div class="zone"><div class="zl">Sur la table · visibles par tous</div>
-      <div class="dice-row">${t.map(i => oralDie(i, !reveal)).join('') || '<span class="empty">aucun dé</span>'}</div></div>
+      <div class="dice-row" id="tableDice">${t.map(i => oralDie(i, !reveal)).join('') || '<span class="empty">aucun dé</span>'}</div></div>
     <div class="zone"><div class="zl">${reveal ? 'Dans le chapeau · levé !' : open ? 'Dans le chapeau · toi seul les vois' : 'Dans le chapeau'}</div>
       ${hatZone}
     </div>
