@@ -167,8 +167,8 @@ function fitTable() {
   const felt = document.querySelector('#app .felt'), act = document.querySelector('#app .actions');
   if (!felt || !act) return;
   const strip = document.querySelector('#app .pstrip'), table = document.querySelector('#app .ptable');
-  const key = `${innerHeight}|${felt.className}`;
-  if (strip && !table && !roomyTable && !noRoom.has(key) && act.getBoundingClientRect().top - felt.getBoundingClientRect().bottom > 120) {
+  const key = `${innerHeight}|${felt.className}|${felt.querySelectorAll(".die").length}`;
+  if (strip && !table && !roomyTable && !noRoom.has(key) && act.getBoundingClientRect().top - felt.getBoundingClientRect().bottom > 100 - strip.offsetHeight) {
     roomyTable = true; render();
   } else if (roomyTable && table && !strip && appOverflows()) {
     noRoom.add(key); roomyTable = false; render();

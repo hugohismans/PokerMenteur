@@ -542,7 +542,7 @@ button.hatbtn:active .cup { transform: scale(.94); }
 /* La table occupe toute la place libre de l'écran (petite sur un iPhone SE, grande sur un Pro Max) */
 #app[data-screen="oral"] { height: 100vh; height: 100dvh; min-height: 0; }
 #app[data-screen="oral"] > * { flex-shrink: 0; }
-#app[data-screen="oral"] > .ptable { flex: 1 1 172px; height: auto; min-height: 136px; max-height: min(380px, 80vw); }
+#app[data-screen="oral"] > .ptable { flex: 1 1 172px; height: auto; min-height: 92px; max-height: min(380px, 80vw); }
 #app[data-screen="oral"] .ptable.lobby { flex: none; }
 
 .tbl-bubble { position: absolute; left: 50%; z-index: 4; display: flex; flex-wrap: nowrap; width: max-content; gap: 2px; background: #fffdf6; border-radius: 10px; padding: 3px 4px; box-shadow: 0 3px 8px rgba(0,0,0,.5); pointer-events: none; transform: translateX(-50%); }
@@ -556,3 +556,41 @@ button.hatbtn:active .cup { transform: scale(.94); }
 @keyframes bubbleup { from { transform: translate(-50%, 10px) scale(.5); opacity: 0; } }
 @keyframes bubbledown { from { transform: translate(-50%, -10px) scale(.5); opacity: 0; } }
 .seat:has(.tbl-bubble) { z-index: 5; }
+
+/* Petite table (écran chargé) : places sur une ligne, chapeau et dés plus petits */
+#app[data-screen="oral"] > .ptable { container-type: size; }
+@container (max-height: 150px) {
+  .ptable .oval { inset: 12px 15%; border-width: 5px; }
+  .seat { display: flex; align-items: center; gap: 4px; min-width: 0; max-width: 120px; padding: 1px 6px; border-radius: 99px; }
+  .seat .sname { font-size: .68rem; max-width: 64px; }
+  .seat .stoks { font-size: .72rem; gap: 2px; }
+  .seat .stoks .tok-svg { width: 12px; height: 12px; }
+  .pot { width: 60px; height: 40px; top: 50%; }
+  .pile-tok { width: 15px; height: 15px; }
+  .pot-lbl { font-size: .62rem; bottom: -6px; padding: 0 6px; }
+  .ptable > .phase { font-size: .55rem; padding: 1px 6px; }
+  .tbl-hat { width: 28px; }
+  .tbl-dice { top: 12%; }
+  .tbl-dice .die { --s: 16px; }
+  .tbl-bubble .die { --s: 15px; }
+}
+
+/* Très petits écrans (iPhone SE…) : on resserre tout pour que l'annonce et « Chapeau ! » restent visibles */
+@media (max-height: 620px) {
+  #app[data-screen="oral"] { gap: 5px; }
+  #app[data-screen="oral"] .hint.small { display: none; }
+  #app[data-screen="oral"] .mine.small { font-size: .8rem; }
+  #app[data-screen="oral"] .felt:not(.side) .zone[data-zone="table"]:has(.empty) { display: flex; align-items: baseline; gap: 8px; }
+  #app[data-screen="oral"] .felt:not(.side) .zone[data-zone="table"]:has(.empty) .zl { margin: 0; }
+  #app[data-screen="oral"] .felt:not(.side) .zone[data-zone="table"] .empty { white-space: nowrap; }
+  #app[data-screen="oral"] .compose { padding: 6px 8px 8px; gap: 4px; }
+  #app[data-screen="oral"] .compose .slots .die, #app[data-screen="oral"] .compose .slot { --s: 30px; width: 30px; height: 30px; }
+  #app[data-screen="oral"] .compose .slots { min-height: 30px; }
+  #app[data-screen="oral"] .facebar { padding: 4px; }
+  #app[data-screen="oral"] .facebar .die { --s: min(11vw, 38px); }
+  #app[data-screen="oral"] .compose .row2 .btn { padding: 7px; font-size: .9rem; }
+  #app[data-screen="oral"] .row2.compact .btn { padding: 7px 6px; }
+  #app[data-screen="oral"] .actions .btn.danger.big { padding: 9px; font-size: 1.05rem; }
+  #app[data-screen="oral"] .actions .btn.danger.big small { display: none; }
+  #app[data-screen="oral"] .banner.compact { padding: 3px 10px; }
+}
