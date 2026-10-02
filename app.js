@@ -41,6 +41,37 @@ const Sound = {
   liar() { this.tone(180, 0.35, 0, 'sawtooth', 0.15); this.tone(140, 0.45, 0.18, 'sawtooth', 0.15); },
   good() { this.tone(523, 0.15); this.tone(784, 0.25, 0.12); },
   win() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, i * 0.13)); },
+  // Accord de cuivres : dents de scie filtrées, petite attaque, léger vibrato
+  brass(freqs, when, dur, vol = 0.05) {
+    if (this.muted || !this.ctx) return;
+    const c = this.ctx, t = c.currentTime + when;
+    const f = c.createBiquadFilter(), g = c.createGain();
+    f.type = 'lowpass'; f.Q.value = 1;
+    f.frequency.setValueAtTime(700, t); f.frequency.linearRampToValueAtTime(3200, t + 0.08);
+    f.frequency.exponentialRampToValueAtTime(1400, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol * freqs.length, t + 0.04);
+    g.gain.setValueAtTime(vol * freqs.length, t + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    f.connect(g); g.connect(c.destination);
+    const lfo = c.createOscillator(), lg = c.createGain();
+    lfo.frequency.value = 5.5; lg.gain.value = 4;
+    lfo.connect(lg); lfo.start(t + 0.15); lfo.stop(t + dur);
+    freqs.forEach((fr, i) => {
+      const o = c.createOscillator();
+      o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = (i % 2 ? 6 : -6);
+      lg.connect(o.frequency);
+      o.connect(f); o.start(t); o.stop(t + dur + 0.05);
+    });
+  },
+  // « Ta-daa ! » : roulement de tambour, accord court puis accord long, étincelles
+  tada() {
+    if (this.muted || !this.ctx) return;
+    for (let i = 0; i < 14; i++) this.click(0.18 + i * 0.025, i * 0.032);
+    this.brass([392, 523.25, 659.25], 0.5, 0.16);
+    this.brass([523.25, 659.25, 783.99, 1046.5], 0.7, 1.2);
+    [1568, 2093, 2637, 3136].forEach((fr, i) => this.tone(fr, 0.25, 0.8 + i * 0.07, 'sine', 0.06));
+  },
 };
 
 function cupShaking(on) {

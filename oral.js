@@ -106,7 +106,7 @@ Object.assign(actions, {
     clearTimeout(O.armT);
     O.armed = false; O.rolled = [];
     S.screen = 'oralReveal';
-    Sound.liar(); vibrate([80, 60, 80]);
+    Sound.tada(); vibrate([0, 500, 40, 80, 300]);
     render();
   },
 });
