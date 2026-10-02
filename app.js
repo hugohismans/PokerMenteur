@@ -43,62 +43,6 @@ const Sound = {
   win() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, i * 0.13)); },
 };
 
-/* ---------- Détection de la secousse ---------- */
-// Réglages de la secousse : augmenter pour rendre moins sensible
-const SHAKE_FORCE = 22;   // accélération minimale (m/s², sans la gravité) d'un coup franc
-const SHAKE_HITS = 5;     // nombre de coups francs nécessaires…
-const SHAKE_WINDOW = 1500; // …dans cette fenêtre (ms)
-
-const Shake = {
-  on: false, hits: [], lastHit: 0, lastStrong: 0, shaken: false, timer: null, onDone: null,
-  async ask() {
-    try {
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        await DeviceMotionEvent.requestPermission();
-      }
-    } catch (e) {}
-  },
-  start(onDone) {
-    this.stop();
-    this.on = true; this.hits = []; this.shaken = false; this.onDone = onDone;
-    window.addEventListener('devicemotion', this.handle);
-    this.timer = setInterval(() => {
-      if (this.shaken && performance.now() - this.lastStrong > 400) {
-        const done = this.onDone;
-        this.stop();
-        done && done();
-      }
-    }, 80);
-  },
-  stop() {
-    this.on = false;
-    window.removeEventListener('devicemotion', this.handle);
-    clearInterval(this.timer);
-  },
-  // Force du mouvement, gravité retirée
-  force(e) {
-    const a = e.acceleration;
-    if (a && a.x != null) return Math.hypot(a.x, a.y, a.z);
-    const g = e.accelerationIncludingGravity;
-    if (g && g.x != null) return Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
-    return 0;
-  },
-  handle(e) {
-    if (Shake.force(e) < SHAKE_FORCE) return;
-    const now = performance.now();
-    Shake.lastStrong = now;
-    if (now - Shake.lastHit < 110) return; // un seul coup compté par secousse
-    Shake.lastHit = now;
-    Shake.hits = Shake.hits.filter(t => now - t < SHAKE_WINDOW);
-    Shake.hits.push(now);
-    if (Shake.hits.length >= SHAKE_HITS) Shake.shaken = true;
-    Sound.rattle(); vibrate(15);
-    cupShaking(true);
-    clearTimeout(Shake.cupT);
-    Shake.cupT = setTimeout(() => cupShaking(false), 300);
-  },
-};
-
 function cupShaking(on) {
   const cup = document.getElementById('cup');
   if (cup) cup.classList.toggle('shaking', on);
@@ -161,15 +105,6 @@ function goTo(i) {
   render();
 }
 
-function armShake() {
-  if (S.screen === 'oral') {
-    if (hatIdx().length) { if (!Shake.on) Shake.start(oralShakeHat); } else Shake.stop();
-    return;
-  }
-  const need = S.screen === 'turn' &&
-    (S.phase === 'first' || (S.phase === 'arrange' && S.modes.includes('reroll')));
-  if (need) { if (!Shake.on) Shake.start(doRoll); } else Shake.stop();
-}
 
 function rerollIdx() {
   return S.phase === 'first' ? [0, 1, 2, 3, 4] : S.modes.map((m, i) => (m === 'reroll' ? i : -1)).filter(i => i >= 0);
@@ -182,7 +117,6 @@ function doRoll() {
   idx.forEach(i => { r.dice[i] = rollDie(); r.table[i] = false; });
   S.lastRerollCount = S.phase === 'first' ? null : idx.length;
   S.rolled = idx;
-  Shake.stop();
   Sound.land();
   vibrate([30, 40, 30]);
   toAnnounce();
@@ -191,7 +125,6 @@ function doRoll() {
 function fakeShakeThenRoll() {
   if (S.busy) return;
   S.busy = true;
-  Shake.stop();
   let n = 0;
   cupShaking(true);
   const t = setInterval(() => {
@@ -233,7 +166,6 @@ function challenge(caller) {
   S.reveal = { caller, claimer: r.claimer, claim: r.claim, actual: evaluate(r.dice), truth, loser };
   S.viewer = null;
   S.screen = 'reveal';
-  Shake.stop();
   Sound.liar();
   setTimeout(() => (truth ? Sound.good() : Sound.liar()), 900);
   vibrate([80, 60, 80]);
@@ -255,7 +187,6 @@ function afterReveal() {
 function botTurn(i) {
   S.screen = 'bot';
   S.phase = null;
-  Shake.stop();
   render();
   const r = S.round;
   const willCall = r.claim && Bot.shouldCall(r);
@@ -307,12 +238,12 @@ const actions = {
     S.setup.lives = Math.max(1, Math.min(9, S.setup.lives + +d)); saveSetup(); render();
   },
   start() {
-    Sound.init(); Shake.ask();
+    Sound.init();
     if (!S.setup.players.some(p => !p.bot)) return alert('Il faut au moins un joueur humain.');
     newGame();
   },
   iam() {
-    Sound.init(); Shake.ask();
+    Sound.init();
     S.viewer = S.current; S.screen = 'turn'; render();
   },
   roll() { Sound.init(); fakeShakeThenRoll(); },
@@ -341,7 +272,6 @@ const actions = {
     S.round.table = S.modes.map(m => m === 'table');
     S.rolled = [];
     S.lastRerollCount = 0;
-    Shake.stop();
     toAnnounce();
   },
   pickType(t) { S.pickType = +t; S.pick = null; const opts = claimsAbove(S.round.claim).filter(c => c.t === +t); if (opts.length === 1) S.pick = opts[0]; render(); },
@@ -355,7 +285,7 @@ const actions = {
   menu() { S.screen = 'setup'; render(); },
   quit() {
     if (!confirm('Quitter la partie en cours ?')) return;
-    clearTimeout(S.botTimer); Shake.stop();
+    clearTimeout(S.botTimer);
     S.screen = 'setup'; render();
   },
   mute() {
@@ -457,8 +387,7 @@ function arrangeHTML() {
     </div>
     <div class="actions">
       ${n
-        ? `<p class="hint">📳 Secoue le téléphone pour relancer ${n} dé${n > 1 ? 's' : ''}</p>
-           <button class="btn primary" data-act="roll">🎲 Lancer ${n} dé${n > 1 ? 's' : ''}</button>`
+        ? `<button class="btn primary" data-act="roll">🎲 Lancer ${n} dé${n > 1 ? 's' : ''}</button>`
         : `<button class="btn primary" data-act="keepAll">Ne rien relancer → annoncer</button>`}
     </div>`;
 }
@@ -496,7 +425,7 @@ function setupHTML() {
     <header class="hero">
       <div class="hero-dice">${[5, 4, 3, 2, 1].map(v => `<div class="die f${v}"><span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span></div>`).join('')}</div>
       <h1>Poker Menteur</h1>
-      <p>Secoue, cache, bluffe… et démasque les menteurs.</p>
+      <p>Lance, cache, bluffe… et démasque les menteurs.</p>
     </header>
     <button class="btn primary big" data-act="oralStart">🎩 Jouer</button>
     <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
@@ -522,7 +451,7 @@ function setupHTML() {
       <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. On se passe le téléphone comme le chapeau. Les annonces se font <b>à voix haute</b> et on a le droit de mentir.</p>
       <p><b>À ton tour</b>, tu prends le téléphone et tu peux :</p>
       <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés) ;</p>
-      <p>• <b>🎩 mélanger le chapeau</b> en secouant le téléphone : seuls les dés du chapeau sont relancés ;</p>
+      <p>• <b>🎩 mélanger le chapeau</b> : seuls les dés du chapeau sont relancés ;</p>
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ;</p>
       <p>• puis tu annonces plus fort que le précédent et tu passes le téléphone au suivant.</p>
@@ -567,7 +496,7 @@ function render() {
       html = playersBar();
       if (S.phase === 'first') {
         html += `${claimBanner()}<div class="msg top">${S.msg}</div>${feltHTML({ shake: true })}
-          <div class="actions"><p class="hint big">📳 ${me}, secoue le téléphone pour lancer les dés</p>
+          <div class="actions"><p class="hint big">${me}, lance les dés</p>
           <button class="btn primary" data-act="roll">🎲 Lancer les dés</button></div>`;
       } else if (S.phase === 'decide') {
         const canBelieve = claimsAbove(S.round.claim).length > 0;
@@ -618,7 +547,6 @@ function render() {
   }
   $app.innerHTML = html;
   $app.dataset.screen = S.screen;
-  armShake();
 }
 
 render();

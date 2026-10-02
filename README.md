@@ -2,7 +2,7 @@
 
 Jeu de poker menteur aux dés (9, 10, Valet, Dame, Roi, As) pour mobile, sous forme de page web installable (PWA).
 
-- **Secoue le téléphone** pour lancer les dés (ou appuie sur « Lancer »).
+- **Mélange le chapeau** ou **lance les dés de la table** d'une touche.
 - Pour chaque dé : le garder **caché sous le gobelet**, le poser **sur la table** (visible par tous) ou le **relancer**.
 - Annonce une combinaison toujours plus forte. Le joueur suivant dit **« Menteur ! »** ou **« Je te crois »**.
 - On joue à plusieurs en se passant le téléphone, et/ou contre l'ordinateur.
@@ -15,7 +15,7 @@ Jeu de poker menteur aux dés (9, 10, Valet, Dame, Roi, As) pour mobile, sous fo
    - **Android (Chrome)** : menu ⋮ → *Ajouter à l'écran d'accueil* / *Installer l'application*.
    - **iPhone (Safari)** : bouton Partager → *Sur l'écran d'accueil*.
 
-Le jeu fonctionne ensuite hors-ligne. Sur iPhone, autorise l'accès aux « mouvements » quand on te le demande pour que la secousse fonctionne.
+Le jeu fonctionne ensuite hors-ligne.
 
 ## En local
 

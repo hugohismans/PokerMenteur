@@ -64,10 +64,10 @@ function setFace(el, v) {
   el.querySelector('.fs').textContent = SUITS[v];
 }
 
-// Anime l'élément secoué (le chapeau ou les dés de la table) avant de lancer
+// Fait trembler le chapeau quelques instants avant de mélanger
 function fakeShake(then, id = 'cup', steps = 7) {
   if (S.busy) return;
-  S.busy = true; Shake.stop();
+  S.busy = true;
   let n = 0;
   const el = () => document.getElementById(id);
   el() && el().classList.add('shaking');
@@ -78,7 +78,7 @@ function fakeShake(then, id = 'cup', steps = 7) {
 }
 
 Object.assign(actions, {
-  oralStart() { Sound.init(); Shake.ask(); oralNewRound(); },
+  oralStart() { Sound.init(); oralNewRound(); },
   oralPeek() {
     O.open = !O.open;
     O.rolled = [];
@@ -166,7 +166,6 @@ function oralHTML() {
     ${O.open ? `<p class="mine">Avec la table : <b>${handName(evaluate(O.dice))}</b></p>` : ''}
     <div class="actions">
       <button class="btn ${O.open ? 'ghost' : ''}" data-act="oralPeek">${O.open ? '🙈 Refermer le chapeau' : '👀 Regarder dans le chapeau'}</button>
-      ${h ? '<p class="hint">📳 Secoue le téléphone pour mélanger le chapeau</p>' : ''}
       <div class="row2">
         <button class="btn" data-act="oralShake" ${h ? '' : 'disabled'}>🎩 Mélanger</button>
         <button class="btn" data-act="oralRoll" ${t ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
