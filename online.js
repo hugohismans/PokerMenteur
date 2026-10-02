@@ -31,6 +31,8 @@ if (config) {
     onAuthStateChanged(auth, u => {
       if (!u) return;
       me = u.uid; ready = true;
+      // Décalage avec l'horloge du serveur, pour un compte à rebours identique chez tous
+      onValue(ref(db, '.info/serverTimeOffset'), s => { ON.offset = s.val() || 0; });
       watchPublicRooms();
       autoJoinFromLink();
       if (S.screen === 'online') render();
@@ -46,8 +48,13 @@ const ON = {
   pseudo: '', roomId: null, room: null, unsub: [], publicRooms: [],
   lastEv: null, wasMyTurn: false, pick: { type: null, claim: null },
   chat: [], chatOpen: false, unread: 0, pendingRender: false, joinError: '', anim: null,
-  wheelSeen: null, wheelDone: false,
+  wheelSeen: null, wheelDone: false, offset: 0, role: 'player',
 };
+const serverNow = () => Date.now() + (ON.offset || 0);
+const REVEAL_SECS = 20, DIR_SECS = 30;
+const turnSecs = () => { const t = ON.room && ON.room.meta && ON.room.meta.turnTime; return t == null ? 60 : t; };
+const setDeadline = (x, secs) => { x.deadline = secs ? serverNow() + secs * 1000 : null; };
+const isPlayer = () => !!(ON.room && ON.room.players && ON.room.players[me]);
 try { ON.pseudo = localStorage.getItem('pm-pseudo') || ''; } catch (e) {}
 const savePseudo = () => { try { localStorage.setItem('pm-pseudo', ON.pseudo); } catch (e) {} };
 
@@ -76,9 +83,12 @@ function roomListHTML() {
   if (!ON.publicRooms.length) return '<p class="empty">Aucun salon public pour l\'instant. Crée le tien !</p>';
   return ON.publicRooms.map(r => {
     const full = (r.count || 0) >= MAX_PLAYERS, playing = r.status === 'playing';
+    const btn = playing
+      ? `<button class="btn sm" data-act="onJoin" data-arg="${r.id}">👀 Regarder</button>`
+      : `<button class="btn primary sm" data-act="onJoin" data-arg="${r.id}" ${full ? 'disabled' : ''}>${full ? 'Complet' : 'Rejoindre'}</button>`;
     return `<div class="roomrow">
-      <div><b>${esc(r.name || 'Salon')}</b><small>${esc(r.hostName || '')} · ${r.count || 0}/${MAX_PLAYERS} joueurs · ${playing ? 'en cours' : 'en attente'}</small></div>
-      <button class="btn primary sm" data-act="onJoin" data-arg="${r.id}" ${full || playing ? 'disabled' : ''}>${playing ? 'En cours' : 'Rejoindre'}</button>
+      <div><b>${esc(r.name || 'Salon')}</b><small>${esc(r.hostName || '')} · ${r.count || 0}/${MAX_PLAYERS} joueurs · ${playing ? 'partie en cours' : 'en attente'}</small></div>
+      ${btn}
     </div>`;
   }).join('');
 }
@@ -97,7 +107,7 @@ async function createRoom(isPublic) {
   const key = newKey();
   const name = (document.getElementById('roomName')?.value || '').trim() || `Salon de ${ON.pseudo}`;
   await set(ref(db, `rooms/${id}`), {
-    meta: { name, host: me, public: isPublic, key, status: 'lobby', createdAt: serverTimestamp(), tokenType: OS.tokenType || 'cailloux' },
+    meta: { name, host: me, public: isPublic, key, status: 'lobby', createdAt: serverTimestamp(), tokenType: OS.tokenType || 'cailloux', turnTime: 60 },
     players: { [me]: { name: ON.pseudo, joinedAt: serverTimestamp(), online: true } },
   });
   await set(ref(db, `roomKeys/${key}`), id);
@@ -113,10 +123,14 @@ async function joinRoom(id) {
   if (!room) { ON.joinError = 'Ce salon n\'existe plus.'; return render(); }
   const players = room.players || {};
   const inGame = room.game && room.game.order && room.game.order.includes(me);
-  if (room.meta.status !== 'lobby' && !inGame) { ON.joinError = 'La partie a déjà commencé dans ce salon.'; return render(); }
+  // Partie en cours sans y être inscrit : on la regarde en spectateur
+  if (room.meta.status !== 'lobby' && !inGame) {
+    await set(ref(db, `rooms/${id}/spectators/${me}`), { name: ON.pseudo, online: true });
+    return enterRoom(id, 'spectator');
+  }
   if (!players[me] && Object.keys(players).length >= MAX_PLAYERS) { ON.joinError = 'Ce salon est complet.'; return render(); }
   await update(ref(db, `rooms/${id}/players/${me}`), { name: ON.pseudo, joinedAt: players[me] ? players[me].joinedAt : serverTimestamp(), online: true });
-  enterRoom(id);
+  enterRoom(id, 'player');
 }
 
 async function joinByKey(raw) {
@@ -127,16 +141,22 @@ async function joinByKey(raw) {
   joinRoom(id);
 }
 
-function enterRoom(id) {
+function enterRoom(id, role = 'player') {
   leaveListeners();
-  ON.roomId = id; ON.room = null; ON.chat = []; ON.unread = 0; ON.lastEv = null; ON.wasMyTurn = false;
+  ON.roomId = id; ON.room = null; ON.chat = []; ON.unread = 0; ON.lastEv = null; ON.wasMyTurn = false; ON.role = role;
   try { localStorage.setItem('pm-online-room', id); } catch (e) {}
   // Présence : hors ligne automatiquement si l'appli se ferme ou perd le réseau
   const presence = onValue(ref(db, '.info/connected'), s => {
     if (!s.val() || !ON.roomId) return;
-    const p = ref(db, `rooms/${id}/players/${me}/online`);
-    onDisconnect(p).set(false);
-    set(p, true);
+    if (role === 'spectator') {
+      const p = ref(db, `rooms/${id}/spectators/${me}`);
+      onDisconnect(p).remove();
+      set(p, { name: ON.pseudo, online: true });
+    } else {
+      const p = ref(db, `rooms/${id}/players/${me}/online`);
+      onDisconnect(p).set(false);
+      set(p, true);
+    }
   });
   const roomL = onValue(ref(db, `rooms/${id}`), s => onRoom(s.val()));
   const chatL = onValue(query(ref(db, `rooms/${id}/chat`), limitToLast(80)), s => {
@@ -162,7 +182,9 @@ async function leaveRoom() {
   leaveListeners();
   ON.roomId = null; ON.room = null; ON.chatOpen = false; drawChat();
   try { localStorage.removeItem('pm-online-room'); } catch (e) {}
-  if (id && room) {
+  if (id && room && ON.role === 'spectator') {
+    await remove(ref(db, `rooms/${id}/spectators/${me}`));
+  } else if (id && room) {
     const lobby = room.meta.status === 'lobby';
     if (lobby) {
       await remove(ref(db, `rooms/${id}/players/${me}`));
@@ -222,7 +244,7 @@ function normalize(x) {
   x.dice = x.dice || [0, 0, 0, 0, 0];
   x.table = [0, 1, 2, 3, 4].map(i => !!(x.table && x.table[i]));
   ['open', 'mixed', 'peeked', 'announced'].forEach(k => { x[k] = !!x[k]; });
-  ['claim', 'claimer', 'prev', 'last', 'wheel', 'reveal', 'dir', 'roundDir', 'ev', 'dirChooser', 'loser'].forEach(k => { if (x[k] === undefined) x[k] = null; });
+  ['claim', 'claimer', 'prev', 'last', 'wheel', 'reveal', 'dir', 'roundDir', 'ev', 'dirChooser', 'loser', 'deadline'].forEach(k => { if (x[k] === undefined) x[k] = null; });
   x.msg = x.msg || '';
 }
 
@@ -279,8 +301,108 @@ function newRound(x, starter) {
     claim: null, claimer: null, last: null, cur: starter, prev: null, roundDir: null, reveal: null,
     round: (x.round || 0) + 1,
   });
+  setDeadline(x, turnSecs());
   x.msg = (x.msg ? x.msg + ' ' : '') + `Nouvelle manche : ${B(starter)} commence.`;
 }
+
+// Le joueur en cours passe le chapeau (le premier passage de la manche fixe le sens pendant la charge)
+function passTurn(x, dir) {
+  const from = x.cur;
+  let note = '';
+  if (x.phase === 'charge' && x.roundDir == null) { x.roundDir = dir; note = ` On tourne dans le ${dirName(dir)}.`; }
+  const d = x.phase === 'decharge' ? x.dir : x.roundDir;
+  const to = nextActive(x, from, d);
+  x.prev = from; x.cur = to;
+  Object.assign(x, { open: false, mixed: false, peeked: false, announced: false });
+  setDeadline(x, turnSecs());
+  x.msg = `${B(from)} passe le chapeau à ${B(to)}.${note}`;
+  x.ev = ev('pass');
+}
+
+// « Chapeau ! » du joueur en cours contre l'annonce du précédent ; renvoie le résumé pour le chat
+function resolveHat(x) {
+  const caller = x.cur, claimer = x.prev, truth = isTrue(x.dice, x.claim);
+  const loser = truth ? caller : claimer, winner = truth ? claimer : caller;
+  const actual = evaluate(x.dice);
+  let anim, rule;
+  if (x.phase === 'charge') {
+    x.tokens[loser] = (x.tokens[loser] || 0) + 1;
+    x.pot--;
+    anim = { from: 'pot', to: loser };
+    rule = `${B(loser)} prend une fiche du pot.`;
+  } else {
+    x.tokens[winner]--;
+    x.pot++;
+    anim = { from: winner, to: 'pot' };
+    rule = `${B(winner)} gagne et remet une fiche au milieu.`;
+    if (x.tokens[winner] <= 0) { x.out[winner] = true; rule += ` ${B(winner)} n'a plus de fiche : sauvé ! 🎉`; }
+  }
+  x.reveal = { caller, claimer, claim: x.claim, actual, truth, loser, winner };
+  x.stage = 'reveal';
+  x.open = false;
+  setDeadline(x, turnSecs() ? REVEAL_SECS : 0);
+  x.msg = rule;
+  x.ev = ev('hat', { anim });
+  return `🎩 ${x.names[caller]} dit chapeau à ${x.names[claimer]} (${handName(x.claim)}) : il y avait ${handName(actual)}. ${x.names[loser]} perd.`;
+}
+
+// Après la révélation : manche suivante, début de la décharge ou fin de partie
+function continueReveal(x) {
+  const loser = x.reveal.loser;
+  if (x.phase === 'charge' && x.pot <= 0) {
+    // Début de la décharge : ceux qui n'ont aucune fiche sont sauvés
+    x.phase = 'decharge';
+    const safe = x.order.filter(u => !(x.tokens[u] > 0));
+    safe.forEach(u => { x.out[u] = true; });
+    x.msg = safe.length ? `Sans fiche, ${safe.map(B).join(', ')} ${safe.length > 1 ? 'sont sauvés' : 'est sauvé'} !` : '';
+    const act = active(x);
+    if (act.length <= 1) { x.stage = 'over'; x.loser = act[0] || loser; x.deadline = null; return; }
+    if (act.length === 2) { x.dir = 1; x.msg += ' Décharge !'; return newRound(x, loser); }
+    x.stage = 'dir'; x.dirChooser = loser; setDeadline(x, turnSecs() ? DIR_SECS : 0); return;
+  }
+  const act = active(x);
+  if (x.phase === 'decharge' && act.length <= 1) { x.stage = 'over'; x.loser = act[0]; x.deadline = null; return; }
+  newRound(x, loser);
+}
+
+// Temps écoulé : on joue à la place du joueur (annonce minimale puis passage)
+function onTimeout(x) {
+  if (x.stage === 'reveal') return continueReveal(x);
+  if (x.stage === 'dir') { x.dir = 1; x.msg = `⏱ Temps écoulé : décharge dans le ${dirName(1)}.`; return newRound(x, x.dirChooser); }
+  if (x.stage !== 'play') return false;
+  const who = x.cur;
+  if (!x.announced) {
+    const c = claimsAbove(x.claim)[0];
+    if (!c) { ON.timeoutSummary = resolveHat(x); return; } // plus d'annonce possible : chapeau automatique
+    x.claim = c; x.claimer = who; x.announced = true;
+  }
+  const claim = x.claim;
+  passTurn(x, x.phase === 'decharge' ? x.dir : (x.roundDir || 1));
+  x.msg = `⏱ Temps écoulé pour ${B(who)} : annonce automatique <span class="claim-inline">${handName(claim)}</span>. ` + x.msg;
+  ON.timeoutSummary = `⏱ Temps écoulé pour ${x.names[who]} : annonce automatique ${handName(claim)}.`;
+}
+
+// Chaque joueur connecté surveille le temps ; la transaction garantit qu'un seul applique l'action
+setInterval(() => {
+  const x = g();
+  if (!x || !x.deadline || !isPlayer() || serverNow() < x.deadline + 1500 || ON.timeoutBusy) return;
+  const dl = x.deadline;
+  ON.timeoutBusy = true; ON.timeoutSummary = '';
+  mutate(y => (y.deadline !== dl ? false : onTimeout(y)))
+    .then(r => { if (r && r.committed && ON.timeoutSummary) sysChat(ON.timeoutSummary); })
+    .finally(() => { ON.timeoutBusy = false; });
+}, 1000 + Math.random() * 400);
+
+// Compte à rebours affiché (mis à jour sans tout redessiner)
+setInterval(() => {
+  const el = document.getElementById('turnTimer'), x = g();
+  if (!el || !x || !x.deadline) return;
+  const left = Math.max(0, Math.ceil((x.deadline - serverNow()) / 1000));
+  el.textContent = `⏱ ${left} s`;
+  el.classList.toggle('urgent', left <= 10);
+  if (myTurn(x) && left <= 5 && left > 0 && left !== ON.lastTick) { ON.lastTick = left; Sound.tone(1200, 0.06); }
+}, 250);
+const timerHTML = x => (x && x.deadline ? `<span class="timer" id="turnTimer">⏱ ${Math.max(0, Math.ceil((x.deadline - serverNow()) / 1000))} s</span>` : '');
 
 // Modifie l'état partagé de façon sûre (transaction) ; fn renvoie false pour annuler
 function mutate(fn) {
@@ -337,6 +459,15 @@ Object.assign(actions, {
     else remove(ref(db, `publicRooms/${ON.roomId}`));
   },
   onToken(t) { if (isHost()) update(roomRef('meta'), { tokenType: t }); },
+  onTurnTime(t) { if (isHost()) update(roomRef('meta'), { turnTime: +t }); },
+  async onSit() {
+    if (!ON.room || ON.room.meta.status !== 'lobby') return;
+    if (Object.keys(ON.room.players || {}).length >= MAX_PLAYERS) return alert('La table est complète.');
+    const id = ON.roomId;
+    await remove(ref(db, `rooms/${id}/spectators/${me}`));
+    await set(ref(db, `rooms/${id}/players/${me}`), { name: ON.pseudo, joinedAt: serverTimestamp(), online: true });
+    enterRoom(id, 'player');
+  },
   onStart() {
     if (!isHost()) return;
     const P = ON.room.players || {};
@@ -418,17 +549,9 @@ Object.assign(actions, {
     sysChat(`📣 ${ON.pseudo} annonce : ${handName(c)}`);
   },
   onPass(dir) {
-    dir = +dir;
     mutate(x => {
       if (!myTurn(x) || x.open || !x.announced) return false;
-      let note = '';
-      if (x.phase === 'charge' && x.roundDir == null) { x.roundDir = dir; note = ` On tourne dans le ${dirName(dir)}.`; }
-      const d = x.phase === 'decharge' ? x.dir : x.roundDir;
-      const to = nextActive(x, me, d);
-      x.prev = me; x.cur = to;
-      Object.assign(x, { open: false, mixed: false, peeked: false, announced: false });
-      x.msg = `${B(me)} passe le chapeau à ${B(to)}.${note}`;
-      x.ev = ev('pass');
+      passTurn(x, +dir);
     });
   },
   onHat() {
@@ -444,48 +567,13 @@ Object.assign(actions, {
     let summary = '';
     mutate(x => {
       if (!canCallHat(x)) return false;
-      const caller = me, claimer = x.prev, truth = isTrue(x.dice, x.claim);
-      const loser = truth ? caller : claimer, winner = truth ? claimer : caller;
-      const actual = evaluate(x.dice);
-      let anim, rule;
-      if (x.phase === 'charge') {
-        x.tokens[loser] = (x.tokens[loser] || 0) + 1;
-        x.pot--;
-        anim = { from: 'pot', to: loser };
-        rule = `${B(loser)} prend une fiche du pot.`;
-      } else {
-        x.tokens[winner]--;
-        x.pot++;
-        anim = { from: winner, to: 'pot' };
-        rule = `${B(winner)} gagne et remet une fiche au milieu.`;
-        if (x.tokens[winner] <= 0) { x.out[winner] = true; rule += ` ${B(winner)} n'a plus de fiche : sauvé ! 🎉`; }
-      }
-      x.reveal = { caller, claimer, claim: x.claim, actual, truth, loser, winner };
-      x.stage = 'reveal';
-      x.open = false;
-      x.msg = rule;
-      x.ev = ev('hat', { anim });
-      summary = `🎩 ${x.names[caller]} dit chapeau à ${x.names[claimer]} (${handName(x.claim)}) : il y avait ${handName(actual)}. ${x.names[loser]} perd.`;
+      summary = resolveHat(x);
     }).then(() => summary && sysChat(summary));
   },
   onContinue() {
     mutate(x => {
-      if (x.stage !== 'reveal') return false;
-      const loser = x.reveal.loser;
-      if (x.phase === 'charge' && x.pot <= 0) {
-        // Début de la décharge : ceux qui n'ont aucune fiche sont sauvés
-        x.phase = 'decharge';
-        const safe = x.order.filter(u => !(x.tokens[u] > 0));
-        safe.forEach(u => { x.out[u] = true; });
-        x.msg = safe.length ? `Sans fiche, ${safe.map(B).join(', ')} ${safe.length > 1 ? 'sont sauvés' : 'est sauvé'} !` : '';
-        const act = active(x);
-        if (act.length <= 1) { x.stage = 'over'; x.loser = act[0] || loser; return; }
-        if (act.length === 2) { x.dir = 1; x.msg += ' Décharge !'; return newRound(x, loser); }
-        x.stage = 'dir'; x.dirChooser = loser; return;
-      }
-      const act = active(x);
-      if (x.phase === 'decharge' && act.length <= 1) { x.stage = 'over'; x.loser = act[0]; return; }
-      newRound(x, loser);
+      if (x.stage !== 'reveal' || !x.order.includes(me)) return false;
+      continueReveal(x);
     });
   },
   onDir(d) {
@@ -639,14 +727,23 @@ function lobbyHTML() {
     return `<div class="seat ${u === m.host ? 'cur' : ''} ${p.online === false ? 'offline' : ''}" style="left:${x}%;top:${y}%">
       <span class="sname">${u === m.host ? '👑 ' : ''}${esc(p.name)}</span><span class="stoks">${u === me ? 'toi' : p.online === false ? '📵' : 'prêt'}</span></div>`;
   }).join('');
-  const host = isHost();
+  const host = isHost(), spectator = !P[me];
+  const spect = Object.values(room.spectators || {});
+  const tt = m.turnTime == null ? 60 : m.turnTime;
+  const timeOpts = [[30, '30 s'], [60, '60 s'], [90, '90 s'], [0, 'Sans limite']];
   return `${onlineTopbar(esc(m.name))}
     <div class="ptable lobby">
       <div class="oval"><div class="lobby-hat">${spinningHat()}</div></div>
       ${seats}
       <span class="phase">${m.public ? '🌍 Public' : '🔒 Privé'}</span>
     </div>
-    <p class="gmsg">${n < 2 ? 'En attente d\'autres joueurs…' : `${n} joueur${n > 1 ? 's' : ''} dans le salon.`} ${host ? '' : `En attente que ${esc((P[m.host] || {}).name || 'le maître du salon')} lance la partie.`}</p>
+    <p class="gmsg">${n < 2 ? 'En attente d\'autres joueurs…' : `${n} joueur${n > 1 ? 's' : ''} dans le salon.`} ${host ? '' : `En attente que ${esc((P[m.host] || {}).name || 'le maître du salon')} lance la partie.`}${spect.length ? ` · 👀 ${spect.length} spectateur${spect.length > 1 ? 's' : ''}` : ''}</p>
+    ${spectator ? `<button class="btn good big" data-act="onSit" ${n >= MAX_PLAYERS ? 'disabled' : ''}>🪑 S'asseoir à la table</button>` : ''}
+    <section class="card"><h2>⏱ Temps par tour</h2>
+      ${host ? `<div class="types">${timeOpts.map(([v, l]) => `<button class="chip ${tt === v ? 'on' : ''}" data-act="onTurnTime" data-arg="${v}">${l}</button>`).join('')}</div>
+        <p class="hint small">Temps écoulé : l'appli fait la plus petite annonce possible et passe le chapeau.</p>`
+      : `<p>${tt ? `${tt} secondes par tour` : 'Sans limite'}</p>`}
+    </section>
     <section class="card share">
       ${m.public ? '' : `<div class="bigkey">Clé : <b>${esc(m.key)}</b></div>`}
       <button class="btn" data-act="onShare">🔗 Inviter des amis</button>
@@ -677,6 +774,8 @@ function claimPickerHTML(x) {
 
 function playHTML(x) {
   const mine = myTurn(x), cur = x.cur;
+  const spect = Object.values(ON.room.spectators || {}).length;
+  const info = `<div class="infoline">${timerHTML(x)}${!x.order.includes(me) ? '<span class="tag-spec">👀 Tu regardes</span>' : ''}${spect ? `<span class="spec-n">👀 ${spect}</span>` : ''}</div>`;
   const claimBanner = x.claim
     ? `<div class="banner"><small>Annonce de ${B(x.claimer)}</small><strong>${handName(x.claim)}</strong></div>`
     : '<div class="banner muted">Pas encore d\'annonce dans cette manche</div>';
@@ -720,6 +819,7 @@ function playHTML(x) {
   return `${onlineTopbar('🎩 ' + esc(ON.room.meta.name))}
     ${mine ? playersStripHTML(G) : pokerTableHTML(G)}
     ${x.msg && !mine ? `<p class="gmsg">${x.msg}</p>` : ''}
+    ${info}
     ${claimBanner}
     ${body}`;
 }
@@ -735,7 +835,8 @@ function revealHTML(x) {
       ${oralFelt(true)}
       <p class="actual">Il y a : <b>${handName(r.actual)}</b></p>
       <div class="verdict ${r.truth ? 'truth' : 'lie'}">${r.truth ? `C'était vrai ! ${B(r.loser)} a perdu.` : `C'était du bluff ! ${B(r.loser)} a perdu.`}<br><small>${x.msg}</small></div>
-      <button class="btn primary big" data-act="onContinue">Manche suivante</button>
+      ${x.order.includes(me) ? '<button class="btn primary big" data-act="onContinue">Manche suivante</button>' : ''}
+      <div class="infoline">${timerHTML(x)}</div>
     </div>`;
 }
 
@@ -782,6 +883,7 @@ function dirHTML(x) {
            <button class="btn primary big" data-act="onDir" data-arg="1">↻ Sens des aiguilles d'une montre<br><small>vers ${nameOf(nextActive(x, me, 1))}</small></button>
            <button class="btn primary big" data-act="onDir" data-arg="-1">↺ Sens inverse<br><small>vers ${nameOf(nextActive(x, me, -1))}</small></button>`
         : `<div class="waiting">${spinningHat()}<p>${B(c)} choisit le sens du jeu…</p></div>`}
+      <div class="infoline">${timerHTML(x)}</div>
     </div>`;
 }
 
@@ -868,7 +970,8 @@ window.ON_DEBUG = () => {
   const x = g();
   if (!x) return { stage: ON.room ? 'lobby' : null };
   return {
-    stage: x.stage, mine: myTurn(x), canHat: !!canCallHat(x), chooser: x.stage === 'dir' && x.dirChooser === me,
+    stage: x.stage, mine: myTurn(x), deadline: x.deadline, left: x.deadline ? Math.round((x.deadline - serverNow()) / 1000) : null,
+    spectator: !x.order.includes(me), cur: x.names[x.cur], claim: x.claim ? handName(x.claim) : null, canHat: !!canCallHat(x), chooser: x.stage === 'dir' && x.dirChooser === me,
     summary: `${x.phase} pot=${x.pot} ` + x.order.map(u => `${x.names[u]}:${x.tokens[u] || 0}${x.out[u] ? '✓' : ''}`).join(' '),
   };
 };

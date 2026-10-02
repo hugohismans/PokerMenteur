@@ -10,7 +10,7 @@ Jeu de poker menteur aux dés (9, 10, Valet, Dame, Roi, As) pour mobile, sous fo
 ## Jouer en ligne
 
 Bouton **🌐 Jouer en ligne** : pseudo, salons publics ou privés (avec une clé), le maître du salon lance la partie,
-annonces dans l'appli, chat. Utilise Firebase (Realtime Database + connexion anonyme) : voir **FIREBASE.md**.
+annonces dans l'appli, chat, temps limité par tour (réglable), spectateurs (parties publiques en cours, ou avec la clé). Utilise Firebase (Realtime Database + connexion anonyme) : voir **FIREBASE.md**.
 Pour tester en local avec l'émulateur Firebase : ouvrir le jeu avec `?emu=1`.
 
 ## Jouer sur le téléphone

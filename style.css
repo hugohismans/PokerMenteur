@@ -392,3 +392,10 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .chat-input { display: flex; gap: 6px; }
 .chat-input input { flex: 1; min-width: 0; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.3); color: var(--ink); font-size: 1rem; }
 .apptitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* Compte à rebours et spectateurs (en ligne) */
+.infoline { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; min-height: 0; }
+.infoline:empty { display: none; }
+.timer { background: rgba(0,0,0,.35); border-radius: 99px; padding: 3px 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.timer.urgent { background: var(--red); animation: pulse .5s ease-in-out infinite alternate; }
+.tag-spec, .spec-n { background: rgba(31,90,153,.6); border-radius: 99px; padding: 3px 10px; font-size: .85rem; font-weight: 600; }
