@@ -9,7 +9,10 @@ const TYPE_NAMES = ['Rien', 'Paire', 'Double paire', 'Brelan', 'Petite suite', '
 
 // Une main : t = type (0..8), a / b = valeurs de faces (0..5)
 const H = (t, a = 0, b = 0) => ({ t, a, b });
-const score = h => h.t * 100 + h.a * 10 + h.b;
+// Force de chaque type : Paire < Double paire < Petite suite < Brelan < Grande suite < Full < Carré < Poker
+const TYPE_RANK = [0, 1, 2, 4, 3, 5, 6, 7, 8];
+const TYPE_ORDER = [1, 2, 4, 3, 5, 6, 7, 8];
+const score = h => TYPE_RANK[h.t] * 100 + h.a * 10 + h.b;
 const de = v => (v === 5 ? "d'As" : 'de ' + PLURAL[v]);
 const rollDie = () => Math.floor(Math.random() * 6);
 
@@ -116,5 +119,5 @@ const Bot = {
 };
 
 if (typeof module !== 'undefined') {
-  module.exports = { FACES, H, score, evaluate, handName, ALL_CLAIMS, claimsAbove, isTrue, probAtLeast, Bot };
+  module.exports = { TYPE_ORDER, FACES, H, score, evaluate, handName, ALL_CLAIMS, claimsAbove, isTrue, probAtLeast, Bot };
 }

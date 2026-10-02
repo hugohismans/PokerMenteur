@@ -452,7 +452,7 @@ function arrangeHTML() {
 function pickerHTML() {
   const r = S.round, above = claimsAbove(r.claim);
   const actual = evaluate(r.dice);
-  const types = [1, 2, 3, 4, 5, 6, 7, 8].map(t => {
+  const types = TYPE_ORDER.map(t => {
     const ok = above.some(c => c.t === t);
     return `<button class="chip ${S.pickType === t ? 'on' : ''}" data-act="pickType" data-arg="${t}" ${ok ? '' : 'disabled'}>${TYPE_NAMES[t]}</button>`;
   }).join('');
@@ -508,7 +508,7 @@ function setupHTML() {
       <p><b>2.</b> Le joueur suivant voit l'annonce et les dés posés sur la table, mais pas ceux sous le gobelet. Il choisit :</p>
       <p>• <b>Menteur !</b> On soulève le gobelet. Si les dés valent au moins l'annonce, l'accusateur perd un jeton ; sinon c'est le menteur.</p>
       <p>• <b>Je te crois</b> : il regarde les dés, choisit pour chacun de le laisser <b>sous le gobelet</b> (caché), de le poser <b>sur la table</b> (visible) ou de le <b>relancer</b>. Puis il doit annoncer <b>plus fort</b> — vrai ou bluff.</p>
-      <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Brelan &lt; Petite suite (9→R) &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
+      <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Petite suite (9→R) &lt; Brelan &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
       <p>Le perdant d'un « menteur » commence la manche suivante. Sans jeton, on est éliminé. Le dernier en jeu gagne.</p>
     </details>
   </div>`;
