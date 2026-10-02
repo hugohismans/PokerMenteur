@@ -287,6 +287,12 @@ function onRoom(room) {
   if (mine && !ON.wasMyTurn) { vibrate([60, 60, 60]); Sound.tone(880, 0.15); Sound.tone(1320, 0.2, 0.12); ON.compose = []; }
   ON.wasMyTurn = mine;
   if (S.screen !== 'onlineRoom') return;
+  // Un message du chat ou une tomate ne changent rien à l'écran : on ne redessine pas
+  // (redessiner pendant qu'on touche l'écran fait rater le toucher)
+  const { chat, fx, ...rest } = room;
+  const sig = JSON.stringify(rest);
+  if (sig === ON.lastSig && !ON.pendingRender) return;
+  ON.lastSig = sig;
   if (S.busy) { ON.pendingRender = true; return; }
   render();
 }

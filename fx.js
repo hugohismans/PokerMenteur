@@ -51,17 +51,18 @@ function openFxMenu(name, onPick) {
   fxMenu.classList.add('open');
 }
 function closeFxMenu() { fxMenu.classList.remove('open'); fxPick = null; }
-fxMenu.addEventListener('click', e => { if (e.target === fxMenu) closeFxMenu(); });
+fxMenu.addEventListener('click', e => { if (e.target === fxMenu && Date.now() - seatHandled > 600) closeFxMenu(); });
 
 Object.assign(actions, {
   fxThrow(kind) {
-    const now = Date.now();
-    if (now - fxLast < 1500) return; // pas de mitraillage
-    fxLast = now;
     const pick = fxPick;
     closeFxMenu();
     Sound.init();
-    pick && pick(kind);
+    if (!pick) return;
+    // Pas de mitraillage : un lancer trop rapproché part un peu plus tard au lieu d'être ignoré
+    const wait = Math.max(0, fxLast + 1200 - Date.now());
+    fxLast = Date.now() + wait;
+    setTimeout(() => pick(kind), wait);
   },
   fxClose() { closeFxMenu(); },
 });
@@ -108,6 +109,27 @@ function impact(kind, toEl, x, y) {
   document.body.appendChild(box);
   setTimeout(() => box.remove(), 1600);
 }
+
+// Toucher un joueur : on réagit dès qu'on lève le doigt, même si l'écran a été redessiné entre-temps
+// (sinon le navigateur annule le « clic » et rien ne se passe)
+let seatDown = null, seatHandled = 0;
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-act="seatTap"]');
+  seatDown = el ? { arg: el.dataset.arg, x: e.clientX, y: e.clientY } : null;
+}, true);
+document.addEventListener('pointerup', e => {
+  const d = seatDown; seatDown = null;
+  if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12 || fxMenu.classList.contains('open')) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const seat = el && el.closest('[data-act="seatTap"]');
+  if (!seat || seat.dataset.arg !== d.arg) return;
+  seatHandled = Date.now();
+  actions.seatTap(d.arg);
+}, true);
+// Le clic qui suit le même toucher ne doit pas rouvrir le menu
+document.addEventListener('click', e => {
+  if (Date.now() - seatHandled < 600 && e.target.closest('[data-act="seatTap"]')) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 
 // Mode local (table du mode complet) : le projectile part du bas de l'écran
 actions.seatTap = i => {
