@@ -88,7 +88,7 @@ const dirName = d => (d === 1 ? 'sens des aiguilles d\'une montre ↻' : 'sens i
 const hatIdx = () => O.dice.map((_, i) => i).filter(i => !O.table[i]);
 const tableIdx = () => O.dice.map((_, i) => i).filter(i => O.table[i]);
 // Un seul lancer par tour : mélanger le chapeau OU lancer la table, et toujours AVANT de regarder.
-// Le tour se termine en passant le téléphone (mode complet) ou en refermant le chapeau (mode simple).
+// Le tour se termine quand on passe le téléphone : on peut rouvrir le chapeau autant qu'on veut avant.
 const mixLocked = () => O.mixed;
 
 function oralShakeHat() {
@@ -341,7 +341,6 @@ Object.assign(actions, {
   oralPeek() {
     if (S.busy || (!O.open && !O.mixed)) return; // il faut avoir lancé avant de regarder
     O.open = !O.open;
-    if (!O.open && !full()) O.mixed = false; // mode simple : refermer le chapeau termine le tour
     O.rolled = [];
     Sound.init();
     O.open ? Sound.hatOpen() : Sound.hatClose();
@@ -363,6 +362,13 @@ Object.assign(actions, {
     G.prev = from; G.current = to;
     O.mixed = false; O.armed = false;
     G.msg = `${P(from)} passe le chapeau à ${P(to)}.${note}`;
+    Sound.click(0.5); vibrate(30);
+    render();
+  },
+  // Mode simple : on passe le téléphone, le joueur suivant devra lancer avant de regarder
+  oralPassSimple() {
+    if (O.open || S.busy) return;
+    O.mixed = false; O.armed = false; O.rolled = [];
     Sound.click(0.5); vibrate(30);
     render();
   },
@@ -495,8 +501,9 @@ function oralHTML() {
       <div class="actions">
         ${peekButton('👀 Regarder dans le chapeau')}
         ${diceButtons}
+        <button class="btn primary" data-act="oralPassSimple" ${O.open ? 'disabled' : ''}>📱 Passer au suivant</button>
+        ${O.open ? '<p class="hint small">Referme le chapeau pour passer le téléphone.</p>' : ''}
         <button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="oralHat">${O.armed ? 'Sûr ? Touche encore' : '🎩 Chapeau !'}</button>
-        ${O.open && !locked ? '<p class="hint small">Pense à refermer le chapeau avant de passer le téléphone.</p>' : ''}
       </div>`;
   }
 

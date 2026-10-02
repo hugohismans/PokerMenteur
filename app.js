@@ -518,6 +518,7 @@ function setupHTML() {
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
       <p>• <b>un seul lancer par tour</b> : soit on mélange le chapeau, soit on lance la table, et on le fait <b>avant de regarder</b> dans le chapeau ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ou en les faisant glisser ;</p>
+      <p>• tu peux rouvrir le chapeau pour revérifier autant que tu veux pendant ton tour ;</p>
       <p>• puis tu annonces plus fort que le précédent, tu refermes le chapeau et tu <b>passes</b> le téléphone.</p>
       <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau, tout le monde voit les dés, et on indique <b>qui a perdu</b>.</p>
       <p><b>Deux modes :</b> <b>Simple</b> (seulement les dés et le chapeau, vos fiches sont sur la vraie table) ou <b>Complet</b> (l'appli gère les joueurs et les fiches).</p>
