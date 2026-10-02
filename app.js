@@ -44,8 +44,13 @@ const Sound = {
 };
 
 /* ---------- Détection de la secousse ---------- */
+// Réglages de la secousse : augmenter pour rendre moins sensible
+const SHAKE_FORCE = 22;   // accélération minimale (m/s², sans la gravité) d'un coup franc
+const SHAKE_HITS = 5;     // nombre de coups francs nécessaires…
+const SHAKE_WINDOW = 1500; // …dans cette fenêtre (ms)
+
 const Shake = {
-  on: false, hits: 0, lastHit: 0, prev: null, timer: null, onDone: null,
+  on: false, hits: [], lastHit: 0, lastStrong: 0, shaken: false, timer: null, onDone: null,
   async ask() {
     try {
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -55,10 +60,10 @@ const Shake = {
   },
   start(onDone) {
     this.stop();
-    this.on = true; this.hits = 0; this.prev = null; this.onDone = onDone;
+    this.on = true; this.hits = []; this.shaken = false; this.onDone = onDone;
     window.addEventListener('devicemotion', this.handle);
     this.timer = setInterval(() => {
-      if (this.hits >= 6 && performance.now() - this.lastHit > 350) {
+      if (this.shaken && performance.now() - this.lastStrong > 400) {
         const done = this.onDone;
         this.stop();
         done && done();
@@ -70,22 +75,27 @@ const Shake = {
     window.removeEventListener('devicemotion', this.handle);
     clearInterval(this.timer);
   },
+  // Force du mouvement, gravité retirée
+  force(e) {
+    const a = e.acceleration;
+    if (a && a.x != null) return Math.hypot(a.x, a.y, a.z);
+    const g = e.accelerationIncludingGravity;
+    if (g && g.x != null) return Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
+    return 0;
+  },
   handle(e) {
-    const a = e.accelerationIncludingGravity || e.acceleration;
-    if (!a || a.x == null) return;
-    const p = Shake.prev;
-    Shake.prev = { x: a.x, y: a.y, z: a.z };
-    if (!p) return;
-    const delta = Math.abs(a.x - p.x) + Math.abs(a.y - p.y) + Math.abs(a.z - p.z);
-    if (delta > 16) {
-      const now = performance.now();
-      Shake.hits++;
-      if (now - Shake.lastHit > 70) { Sound.rattle(); vibrate(15); }
-      Shake.lastHit = now;
-      cupShaking(true);
-      clearTimeout(Shake.cupT);
-      Shake.cupT = setTimeout(() => cupShaking(false), 300);
-    }
+    if (Shake.force(e) < SHAKE_FORCE) return;
+    const now = performance.now();
+    Shake.lastStrong = now;
+    if (now - Shake.lastHit < 110) return; // un seul coup compté par secousse
+    Shake.lastHit = now;
+    Shake.hits = Shake.hits.filter(t => now - t < SHAKE_WINDOW);
+    Shake.hits.push(now);
+    if (Shake.hits.length >= SHAKE_HITS) Shake.shaken = true;
+    Sound.rattle(); vibrate(15);
+    cupShaking(true);
+    clearTimeout(Shake.cupT);
+    Shake.cupT = setTimeout(() => cupShaking(false), 300);
   },
 };
 

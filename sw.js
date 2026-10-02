@@ -1,5 +1,5 @@
 // Cache hors-ligne : incrémente VERSION à chaque mise à jour du jeu.
-const VERSION = 'pm-v5';
+const VERSION = 'pm-v6';
 const FILES = ['./', 'index.html', 'style.css', 'game.js', 'app.js', 'oral.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
