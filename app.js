@@ -525,7 +525,7 @@ function setupHTML() {
       <p>• <b>🎩 mélanger le chapeau</b> en secouant le téléphone : seuls les dés du chapeau sont relancés ;</p>
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ;</p>
-      <p>• puis tu annonces plus fort que le précédent et tu <b>📱 passes</b> le téléphone.</p>
+      <p>• puis tu annonces plus fort que le précédent et tu passes le téléphone au suivant.</p>
       <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau et tout le monde voit les dés.</p>
       <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Petite suite (9→R) &lt; Brelan &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
     </details>
@@ -540,9 +540,6 @@ function render() {
       break;
     case 'oral':
       html = oralHTML();
-      break;
-    case 'oralPass':
-      html = oralPassHTML();
       break;
     case 'oralReveal':
       html = oralRevealHTML();
