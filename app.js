@@ -41,6 +41,8 @@ const Sound = {
   liar() { this.tone(180, 0.35, 0, 'sawtooth', 0.15); this.tone(140, 0.45, 0.18, 'sawtooth', 0.15); },
   good() { this.tone(523, 0.15); this.tone(784, 0.25, 0.12); },
   win() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, i * 0.13)); },
+  // Fiche qui tombe sur une autre
+  clink() { this.tone(2400, 0.12, 0, 'sine', 0.18); this.tone(3100, 0.1, 0.06, 'sine', 0.12); },
   // Coup sec de bloc de bois : note qui chute très vite + attaque bruitée
   knock(freq, when = 0, vol = 0.7) {
     if (this.muted || !this.ctx) return;
@@ -333,7 +335,8 @@ const actions = {
   again() { newGame(); },
   menu() { S.screen = 'setup'; render(); },
   quit() {
-    if (!confirm('Quitter la partie en cours ?')) return;
+    const oral = GAME_SCREENS.includes(S.screen);
+    if (!confirm(oral ? 'Revenir au menu ? La partie est gardée, tu pourras la reprendre.' : 'Quitter la partie en cours ?')) return;
     clearTimeout(S.botTimer);
     S.screen = 'setup'; render();
   },
@@ -477,7 +480,8 @@ function setupHTML() {
       <h1>Poker Menteur</h1>
       <p>Lance, cache, bluffe… et démasque les menteurs.</p>
     </header>
-    <button class="btn primary big" data-act="oralStart">🎩 Jouer</button>
+    ${(() => { const s = savedGame(); return s ? `<button class="btn good big" data-act="oralResume">▶ Reprendre la partie<br><small>${s.G.players.map(p => esc(p.name)).join(', ')}</small></button>` : ''; })()}
+    <button class="btn primary big" data-act="oralSetup">🎩 Nouvelle partie</button>
     <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
     <section class="card">
       <h2>Style des dés</h2>
@@ -510,11 +514,15 @@ function setupHTML() {
       <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. On se passe le téléphone comme le chapeau. Les annonces se font <b>à voix haute</b> et on a le droit de mentir.</p>
       <p><b>À ton tour</b>, tu prends le téléphone et tu peux :</p>
       <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés) ;</p>
-      <p>• <b>🎩 mélanger le chapeau</b> : seuls les dés du chapeau sont relancés. Une seule fois quand le chapeau est ouvert : il faut le refermer (fin du tour) avant de pouvoir remélanger ;</p>
+      <p>• <b>🎩 mélanger le chapeau</b> : seuls les dés du chapeau sont relancés, <b>une seule fois par tour</b> ;</p>
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ;</p>
-      <p>• puis tu annonces plus fort que le précédent et tu passes le téléphone au suivant.</p>
-      <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau et tout le monde voit les dés.</p>
+      <p>• puis tu annonces plus fort que le précédent, tu refermes le chapeau et tu <b>passes</b> le téléphone.</p>
+      <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau, tout le monde voit les dés, et on indique <b>qui a perdu</b>.</p>
+      <p><b>Les fiches :</b> au départ, il y a 2 × le nombre de joueurs + 1 fiches au milieu de la table.</p>
+      <p>• <b>La charge</b> : le perdant prend une fiche du pot. On peut passer le téléphone à gauche ou à droite.</p>
+      <p>• <b>La décharge</b> commence quand le pot est vide. Ceux qui n'ont aucune fiche sont sauvés. Le dernier perdant choisit le sens du jeu, qui ne change plus. Le gagnant donne une de ses fiches au perdant.</p>
+      <p>Le but : ne plus avoir de fiches. Le dernier qui en a encore a perdu la partie. Le perdant commence toujours la manche suivante.</p>
       <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Petite suite (9→R) &lt; Brelan &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
     </details>
   </div>`;
@@ -528,6 +536,15 @@ function render() {
       break;
     case 'oral':
       html = oralHTML();
+      break;
+    case 'oralSetup':
+      html = oralSetupHTML();
+      break;
+    case 'oralDir':
+      html = oralDirHTML();
+      break;
+    case 'oralEnd':
+      html = oralEndHTML();
       break;
     case 'oralReveal':
       html = oralRevealHTML();
@@ -606,6 +623,7 @@ function render() {
   }
   $app.innerHTML = html;
   $app.dataset.screen = S.screen;
+  if (typeof afterRender === 'function') afterRender();
 }
 
-render();
+// Premier affichage : fait à la fin de oral.js, une fois tous les scripts chargés.
