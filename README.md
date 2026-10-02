@@ -3,7 +3,7 @@
 Jeu de poker menteur aux dés (9, 10, Valet, Dame, Roi, As) pour mobile, sous forme de page web installable (PWA).
 
 - **Mélange le chapeau** ou **lance les dés de la table** d'une touche.
-- Pour chaque dé : le garder **caché sous le gobelet**, le poser **sur la table** (visible par tous) ou le **relancer**.
+- Pour chaque dé : le garder **caché dans le chapeau** ou le poser **sur la table** (visible par tous) ; un seul lancer par tour : mélanger le chapeau (fermé) ou lancer la table.
 - Annonce une combinaison toujours plus forte. Le joueur suivant dit **« Menteur ! »** ou **« Je te crois »**.
 - On joue à plusieurs en se passant le téléphone, et/ou contre l'ordinateur.
 
