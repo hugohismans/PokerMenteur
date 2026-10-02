@@ -1,0 +1,600 @@
+'use strict';
+/* Interface du jeu : écrans, gobelet, secousse, sons. */
+
+const $app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const vibrate = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+/* ---------- Sons (synthétisés, pas de fichiers) ---------- */
+const Sound = {
+  ctx: null, noise: null, muted: false,
+  init() {
+    try {
+      if (!this.ctx) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const len = Math.floor(this.ctx.sampleRate * 0.04);
+        this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const d = this.noise.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 5);
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) {}
+  },
+  click(vol = 0.5, when = 0) {
+    if (this.muted || !this.ctx) return;
+    const c = this.ctx, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = this.noise;
+    f.type = 'bandpass'; f.frequency.value = 1200 + Math.random() * 3000; f.Q.value = 3;
+    g.gain.value = vol;
+    s.connect(f); f.connect(g); g.connect(c.destination);
+    s.start(c.currentTime + when);
+  },
+  rattle() { for (let i = 0; i < 3; i++) this.click(0.35, Math.random() * 0.08); },
+  land() { for (let i = 0; i < 7; i++) this.click(0.6 - i * 0.07, i * 0.045 + Math.random() * 0.03); },
+  tone(freq, dur, when = 0, type = 'triangle', vol = 0.25) {
+    if (this.muted || !this.ctx) return;
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain(), t = c.currentTime + when;
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur);
+  },
+  liar() { this.tone(180, 0.35, 0, 'sawtooth', 0.15); this.tone(140, 0.45, 0.18, 'sawtooth', 0.15); },
+  good() { this.tone(523, 0.15); this.tone(784, 0.25, 0.12); },
+  win() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, i * 0.13)); },
+};
+
+/* ---------- Détection de la secousse ---------- */
+const Shake = {
+  on: false, hits: 0, lastHit: 0, prev: null, timer: null, onDone: null,
+  async ask() {
+    try {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        await DeviceMotionEvent.requestPermission();
+      }
+    } catch (e) {}
+  },
+  start(onDone) {
+    this.stop();
+    this.on = true; this.hits = 0; this.prev = null; this.onDone = onDone;
+    window.addEventListener('devicemotion', this.handle);
+    this.timer = setInterval(() => {
+      if (this.hits >= 6 && performance.now() - this.lastHit > 350) {
+        const done = this.onDone;
+        this.stop();
+        done && done();
+      }
+    }, 80);
+  },
+  stop() {
+    this.on = false;
+    window.removeEventListener('devicemotion', this.handle);
+    clearInterval(this.timer);
+  },
+  handle(e) {
+    const a = e.accelerationIncludingGravity || e.acceleration;
+    if (!a || a.x == null) return;
+    const p = Shake.prev;
+    Shake.prev = { x: a.x, y: a.y, z: a.z };
+    if (!p) return;
+    const delta = Math.abs(a.x - p.x) + Math.abs(a.y - p.y) + Math.abs(a.z - p.z);
+    if (delta > 16) {
+      const now = performance.now();
+      Shake.hits++;
+      if (now - Shake.lastHit > 70) { Sound.rattle(); vibrate(15); }
+      Shake.lastHit = now;
+      cupShaking(true);
+      clearTimeout(Shake.cupT);
+      Shake.cupT = setTimeout(() => cupShaking(false), 300);
+    }
+  },
+};
+
+function cupShaking(on) {
+  const cup = document.getElementById('cup');
+  if (cup) cup.classList.toggle('shaking', on);
+}
+
+/* ---------- État ---------- */
+function loadSetup() {
+  try { return JSON.parse(localStorage.getItem('pm-setup')); } catch (e) { return null; }
+}
+function saveSetup() {
+  try { localStorage.setItem('pm-setup', JSON.stringify(S.setup)); } catch (e) {}
+}
+
+const S = {
+  screen: 'setup',
+  setup: loadSetup() || { players: [{ name: 'Joueur 1', bot: false }, { name: 'Ordi', bot: true }], lives: 3 },
+  players: [], round: null, current: -1, viewer: null,
+  phase: null, modes: null, rolled: [], pickType: 1, pick: null,
+  msg: '', reveal: null, botTimer: null, busy: false,
+};
+try { S.muted = Sound.muted = localStorage.getItem('pm-muted') === '1'; } catch (e) {}
+
+const alive = () => S.players.filter(p => p.lives > 0);
+const humansAlive = () => alive().filter(p => !p.bot).length;
+function nextAlive(i) {
+  let j = i;
+  do { j = (j + 1) % S.players.length; } while (S.players[j].lives <= 0);
+  return j;
+}
+const pn = i => `<b>${esc(S.players[i].name)}</b>`;
+
+/* ---------- Déroulement ---------- */
+function newGame() {
+  S.players = S.setup.players.map((p, i) => ({
+    name: p.name.trim() || (p.bot ? `Ordi ${i + 1}` : `Joueur ${i + 1}`),
+    bot: p.bot, lives: S.setup.lives,
+  }));
+  S.viewer = null;
+  startRound(Math.floor(Math.random() * S.players.length), '');
+}
+
+function startRound(starter, intro) {
+  S.round = { dice: [0, 0, 0, 0, 0], table: [false, false, false, false, false], claim: null, claimer: -1, history: [] };
+  S.msg = (intro ? intro + '<br>' : '') + `Nouvelle manche : ${pn(starter)} lance les dés.`;
+  goTo(starter);
+}
+
+function goTo(i) {
+  S.current = i;
+  S.rolled = [];
+  S.modes = null;
+  if (S.players[i].bot) return botTurn(i);
+  S.phase = S.round.claim ? 'decide' : 'first';
+  if (humansAlive() > 1 && S.viewer !== i) {
+    S.screen = 'handoff';
+  } else {
+    S.viewer = i;
+    S.screen = 'turn';
+  }
+  render();
+}
+
+function armShake() {
+  const need = S.screen === 'turn' &&
+    (S.phase === 'first' || (S.phase === 'arrange' && S.modes.includes('reroll')));
+  if (need) { if (!Shake.on) Shake.start(doRoll); } else Shake.stop();
+}
+
+function rerollIdx() {
+  return S.phase === 'first' ? [0, 1, 2, 3, 4] : S.modes.map((m, i) => (m === 'reroll' ? i : -1)).filter(i => i >= 0);
+}
+
+function doRoll() {
+  if (S.busy) return;
+  const r = S.round, idx = rerollIdx();
+  if (S.phase === 'arrange') r.table = S.modes.map(m => m === 'table');
+  idx.forEach(i => { r.dice[i] = rollDie(); r.table[i] = false; });
+  S.lastRerollCount = S.phase === 'first' ? null : idx.length;
+  S.rolled = idx;
+  Shake.stop();
+  Sound.land();
+  vibrate([30, 40, 30]);
+  toAnnounce();
+}
+
+function fakeShakeThenRoll() {
+  if (S.busy) return;
+  S.busy = true;
+  Shake.stop();
+  let n = 0;
+  cupShaking(true);
+  const t = setInterval(() => {
+    Sound.rattle(); vibrate(10);
+    if (++n >= 7) {
+      clearInterval(t); cupShaking(false); S.busy = false;
+      doRoll();
+    }
+  }, 90);
+}
+
+function toAnnounce() {
+  S.phase = 'announce';
+  const r = S.round, actual = evaluate(r.dice);
+  const above = claimsAbove(r.claim);
+  if (actual.t > 0 && (!r.claim || score(actual) > score(r.claim))) {
+    S.pick = ALL_CLAIMS.find(c => score(c) === score(actual));
+  } else S.pick = null;
+  S.pickType = S.pick ? S.pick.t : above[0].t;
+  render();
+}
+
+function announce(claim, who, rerolled) {
+  const r = S.round;
+  r.claim = claim; r.claimer = who;
+  r.history.push({ who, claim });
+  let how;
+  if (rerolled == null) how = 'lance les dés';
+  else if (rerolled === 0) how = 'ne relance rien';
+  else how = `relance ${rerolled} dé${rerolled > 1 ? 's' : ''}`;
+  S.msg = `${pn(who)} ${how} et annonce&nbsp;: <span class="claim-inline">${handName(claim)}</span>`;
+  goTo(nextAlive(who));
+}
+
+function challenge(caller) {
+  const r = S.round, truth = isTrue(r.dice, r.claim);
+  const loser = truth ? caller : r.claimer;
+  S.players[loser].lives--;
+  S.reveal = { caller, claimer: r.claimer, claim: r.claim, actual: evaluate(r.dice), truth, loser };
+  S.viewer = null;
+  S.screen = 'reveal';
+  Shake.stop();
+  Sound.liar();
+  setTimeout(() => (truth ? Sound.good() : Sound.liar()), 900);
+  vibrate([80, 60, 80]);
+  render();
+}
+
+function afterReveal() {
+  const loser = S.reveal.loser, out = S.players[loser].lives <= 0;
+  if (alive().length <= 1) {
+    S.screen = 'end';
+    Sound.win();
+    return render();
+  }
+  const intro = out ? `${pn(loser)} est éliminé·e !` : '';
+  startRound(out ? nextAlive(loser) : loser, intro);
+}
+
+/* ---------- Ordinateur ---------- */
+function botTurn(i) {
+  S.screen = 'bot';
+  S.phase = null;
+  Shake.stop();
+  render();
+  const r = S.round;
+  const willCall = r.claim && Bot.shouldCall(r);
+  let rattle = null;
+  if (!willCall) {
+    let n = 0;
+    rattle = setInterval(() => { if (++n > 6 && n < 18) { Sound.rattle(); cupShaking(true); } }, 90);
+  }
+  S.botTimer = setTimeout(() => {
+    clearInterval(rattle); cupShaking(false);
+    if (willCall) return challenge(i);
+    if (!r.claim) {
+      r.dice = r.dice.map(rollDie);
+      r.table = [false, false, false, false, false];
+      Sound.land();
+      return announce(Bot.chooseClaim(r.dice, null), i, null);
+    }
+    const rer = Bot.chooseRerolls(r.dice, r.claim);
+    const showKept = Math.random() < 0.5;
+    let n = 0;
+    r.dice = r.dice.map((v, k) => {
+      if (rer[k]) { n++; r.table[k] = false; return rollDie(); }
+      r.table[k] = showKept;
+      return v;
+    });
+    if (n) Sound.land();
+    announce(Bot.chooseClaim(r.dice, r.claim), i, n);
+  }, r.claim && willCall ? 1400 : 2000);
+}
+
+/* ---------- Actions ---------- */
+const actions = {
+  addPlayer(bot) {
+    const P = S.setup.players;
+    if (P.length >= 8) return;
+    const n = P.filter(p => p.bot === (bot === '1')).length + 1;
+    P.push({ name: bot === '1' ? `Ordi ${n}` : `Joueur ${n}`, bot: bot === '1' });
+    saveSetup(); render();
+  },
+  removePlayer(i) {
+    if (S.setup.players.length <= 2) return;
+    S.setup.players.splice(+i, 1); saveSetup(); render();
+  },
+  toggleBot(i) {
+    const p = S.setup.players[+i];
+    p.bot = !p.bot; saveSetup(); render();
+  },
+  lives(d) {
+    S.setup.lives = Math.max(1, Math.min(9, S.setup.lives + +d)); saveSetup(); render();
+  },
+  start() {
+    Sound.init(); Shake.ask();
+    if (!S.setup.players.some(p => !p.bot)) return alert('Il faut au moins un joueur humain.');
+    newGame();
+  },
+  iam() {
+    Sound.init(); Shake.ask();
+    S.viewer = S.current; S.screen = 'turn'; render();
+  },
+  roll() { Sound.init(); fakeShakeThenRoll(); },
+  liar() { challenge(S.current); },
+  believe() {
+    S.phase = 'arrange';
+    S.modes = S.round.table.map(t => (t ? 'table' : 'cup'));
+    render();
+  },
+  tapDie(i) {
+    i = +i;
+    if (S.phase === 'arrange') {
+      const order = ['cup', 'table', 'reroll'];
+      S.modes[i] = order[(order.indexOf(S.modes[i]) + 1) % 3];
+      Sound.click(0.4);
+      render();
+    } else if (S.phase === 'announce') {
+      S.round.table[i] = !S.round.table[i];
+      Sound.click(0.4);
+      S.rolled = [];
+      render();
+    }
+  },
+  allMode(m) { S.modes = S.modes.map(() => m); render(); },
+  keepAll() {
+    S.round.table = S.modes.map(m => m === 'table');
+    S.rolled = [];
+    S.lastRerollCount = 0;
+    Shake.stop();
+    toAnnounce();
+  },
+  pickType(t) { S.pickType = +t; S.pick = null; const opts = claimsAbove(S.round.claim).filter(c => c.t === +t); if (opts.length === 1) S.pick = opts[0]; render(); },
+  pick(sc) { S.pick = ALL_CLAIMS.find(c => score(c) === +sc); Sound.click(0.3); render(); },
+  confirm() {
+    if (!S.pick) return;
+    announce(S.pick, S.current, S.lastRerollCount);
+  },
+  next() { afterReveal(); },
+  again() { newGame(); },
+  menu() { S.screen = 'setup'; render(); },
+  quit() {
+    if (!confirm('Quitter la partie en cours ?')) return;
+    clearTimeout(S.botTimer); Shake.stop();
+    S.screen = 'setup'; render();
+  },
+  mute() {
+    S.muted = Sound.muted = !Sound.muted;
+    try { localStorage.setItem('pm-muted', S.muted ? '1' : '0'); } catch (e) {}
+    render();
+  },
+};
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  actions[el.dataset.act](el.dataset.arg);
+});
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.name != null) { S.setup.players[+el.dataset.name].name = el.value; saveSetup(); }
+});
+
+/* ---------- Rendu ---------- */
+const CUP_SVG = `<svg viewBox="0 0 120 110" aria-hidden="true">
+  <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#4a2511"/><stop offset=".45" stop-color="#9a5a2c"/><stop offset="1" stop-color="#3b1d0c"/></linearGradient></defs>
+  <path d="M28 10 L92 10 L108 96 L12 96 Z" fill="url(#lg)"/>
+  <ellipse cx="60" cy="10" rx="32" ry="6" fill="#2a1408"/>
+  <path d="M12 96 Q60 108 108 96 L108 100 Q60 112 12 100 Z" fill="#c9a227"/>
+  <path d="M22 50 L98 50" stroke="#c9a227" stroke-width="3" opacity=".8"/>
+  <path d="M19 66 L101 66" stroke="#c9a227" stroke-width="1.5" opacity=".6"/>
+</svg>`;
+
+function dieHTML(v, i, o = {}) {
+  const cls = ['die', 'f' + v, o.cls || '', S.rolled.includes(i) && o.anim !== false ? 'rolled' : ''].join(' ');
+  const delay = `style="animation-delay:${(i % 5) * 50}ms"`;
+  const inner = `<span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span>`;
+  return o.tap
+    ? `<button class="${cls}" ${delay} data-act="tapDie" data-arg="${i}">${inner}${o.badge || ''}</button>`
+    : `<div class="${cls}" ${delay}>${inner}${o.badge || ''}</div>`;
+}
+
+function playersBar() {
+  return `<div class="topbar">
+    <div class="players">${S.players.map((p, i) => `
+      <div class="pl ${i === S.current && S.screen !== 'reveal' ? 'cur' : ''} ${p.lives <= 0 ? 'out' : ''}">
+        <span class="nm">${p.bot ? '🤖 ' : ''}${esc(p.name)}</span>
+        <span class="lv">${'<i class="tok"></i>'.repeat(Math.max(0, p.lives))}${p.lives <= 0 ? '✖' : ''}</span>
+      </div>`).join('')}
+    </div>
+    <div class="tools">
+      <button class="icon" data-act="mute" aria-label="Son">${S.muted ? '🔇' : '🔊'}</button>
+      <button class="icon" data-act="quit" aria-label="Quitter">✕</button>
+    </div>
+  </div>`;
+}
+
+function claimBanner() {
+  const r = S.round;
+  if (!r.claim) return `<div class="banner muted">Pas encore d'annonce dans cette manche</div>`;
+  return `<div class="banner"><small>Annonce de ${pn(r.claimer)}</small><strong>${handName(r.claim)}</strong></div>`;
+}
+
+function historyHTML() {
+  const h = S.round.history;
+  if (h.length < 2) return '';
+  return `<details class="hist"><summary>Annonces de la manche (${h.length})</summary><ol>${
+    h.map(x => `<li>${esc(S.players[x.who].name)} : ${handName(x.claim)}</li>`).join('')}</ol></details>`;
+}
+
+// Le tapis : dés visibles sur la table + gobelet (fermé ou soulevé)
+function feltHTML({ open = false, tap = false, shake = false, reveal = false } = {}) {
+  const r = S.round, tbl = [], cup = [];
+  r.dice.forEach((v, i) => (r.table[i] ? tbl : cup).push(dieHTML(v, i, { tap })));
+  const cupClosed = `<div class="cup ${shake ? 'ready' : ''}" id="cup">${CUP_SVG}<span class="cnt">${cup.length}</span></div>`;
+  return `<div class="felt">
+    <div class="zone"><div class="zl">Sur la table · visibles par tous</div>
+      <div class="dice-row">${tbl.join('') || '<span class="empty">aucun dé</span>'}</div></div>
+    <div class="zone"><div class="zl">Sous le gobelet${reveal ? ' · soulevé !' : open ? ' · toi seul les vois' : ''}</div>
+      ${open
+        ? `<div class="dice-row under">${cup.join('') || '<span class="empty">aucun dé</span>'}</div>`
+        : `<div class="cup-wrap">${cupClosed}</div>`}
+    </div>
+  </div>`;
+}
+
+function arrangeHTML() {
+  const r = S.round;
+  const labels = { cup: '🎩 Caché', table: '👁 Table', reroll: '🎲 Relance' };
+  const dice = r.dice.map((v, i) => dieHTML(v, i, {
+    tap: true, cls: 'm-' + S.modes[i], anim: false,
+    badge: `<span class="badge">${labels[S.modes[i]]}</span>`,
+  })).join('');
+  const n = S.modes.filter(m => m === 'reroll').length;
+  return `<div class="felt">
+      <div class="zl">Tes dés — touche un dé pour changer son sort</div>
+      <div class="dice-row arrange">${dice}</div>
+      <div class="quick">
+        <button class="chip" data-act="allMode" data-arg="reroll">Tout relancer</button>
+        <button class="chip" data-act="allMode" data-arg="cup">Tout garder</button>
+      </div>
+      ${n ? `<div class="cup-wrap small">${`<div class="cup ready" id="cup">${CUP_SVG}<span class="cnt">${n}</span></div>`}</div>` : ''}
+    </div>
+    <div class="actions">
+      ${n
+        ? `<p class="hint">📳 Secoue le téléphone pour relancer ${n} dé${n > 1 ? 's' : ''}</p>
+           <button class="btn primary" data-act="roll">🎲 Lancer ${n} dé${n > 1 ? 's' : ''}</button>`
+        : `<button class="btn primary" data-act="keepAll">Ne rien relancer → annoncer</button>`}
+    </div>`;
+}
+
+function pickerHTML() {
+  const r = S.round, above = claimsAbove(r.claim);
+  const actual = evaluate(r.dice);
+  const types = [1, 2, 3, 4, 5, 6, 7, 8].map(t => {
+    const ok = above.some(c => c.t === t);
+    return `<button class="chip ${S.pickType === t ? 'on' : ''}" data-act="pickType" data-arg="${t}" ${ok ? '' : 'disabled'}>${TYPE_NAMES[t]}</button>`;
+  }).join('');
+  const opts = above.filter(c => c.t === S.pickType);
+  const label = c => {
+    if (c.t === 2) return `${PLURAL[c.a]} + ${PLURAL[c.b]}`;
+    if (c.t === 6) return `${PLURAL[c.a]} par ${PLURAL[c.b]}`;
+    if (c.t === 4 || c.t === 5) return TYPE_NAMES[c.t];
+    return PLURAL[c.a];
+  };
+  const vals = opts.map(c => `<button class="val ${S.pick && score(S.pick) === score(c) ? 'on' : ''} ${score(c) <= score(actual) ? 'true' : ''}"
+      data-act="pick" data-arg="${score(c)}">${label(c)}</button>`).join('');
+  const bluff = S.pick && score(S.pick) > score(actual);
+  return `<div class="picker">
+    <div class="mine">Ta main : <b>${handName(actual)}</b></div>
+    <div class="types">${types}</div>
+    <div class="vals ${S.pickType === 6 || S.pickType === 2 ? 'wide' : ''}">${vals}</div>
+    <button class="btn primary" data-act="confirm" ${S.pick ? '' : 'disabled'}>
+      ${S.pick ? `Annoncer : ${handName(S.pick)} ${bluff ? '<span class="tag">bluff 😏</span>' : ''}` : 'Choisis ton annonce'}
+    </button>
+  </div>`;
+}
+
+function setupHTML() {
+  const P = S.setup.players;
+  return `<div class="setup">
+    <header class="hero">
+      <div class="hero-dice">${[5, 4, 3, 2, 1].map(v => `<div class="die f${v}"><span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span></div>`).join('')}</div>
+      <h1>Poker Menteur</h1>
+      <p>Secoue, cache, bluffe… et démasque les menteurs.</p>
+    </header>
+    <section class="card">
+      <h2>Joueurs</h2>
+      ${P.map((p, i) => `<div class="prow">
+        <button class="kind" data-act="toggleBot" data-arg="${i}" aria-label="Humain ou ordinateur">${p.bot ? '🤖' : '👤'}</button>
+        <input value="${esc(p.name)}" data-name="${i}" maxlength="14" aria-label="Nom">
+        <button class="icon" data-act="removePlayer" data-arg="${i}" ${P.length <= 2 ? 'disabled' : ''} aria-label="Retirer">✕</button>
+      </div>`).join('')}
+      <div class="row2">
+        <button class="btn ghost" data-act="addPlayer" data-arg="0" ${P.length >= 8 ? 'disabled' : ''}>+ Joueur</button>
+        <button class="btn ghost" data-act="addPlayer" data-arg="1" ${P.length >= 8 ? 'disabled' : ''}>+ Ordinateur</button>
+      </div>
+      <div class="lives">
+        <span>Jetons par joueur</span>
+        <div class="stepper"><button class="icon" data-act="lives" data-arg="-1">−</button><b>${S.setup.lives}</b><button class="icon" data-act="lives" data-arg="1">+</button></div>
+      </div>
+    </section>
+    <button class="btn primary big" data-act="start">Jouer</button>
+    <details class="card rules">
+      <summary>Règles du jeu</summary>
+      <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. Avec plusieurs humains, on se passe le téléphone comme le gobelet.</p>
+      <p><b>1.</b> Le premier joueur secoue le téléphone (ou appuie sur Lancer), regarde ses dés en cachette et fait une annonce.</p>
+      <p><b>2.</b> Le joueur suivant voit l'annonce et les dés posés sur la table, mais pas ceux sous le gobelet. Il choisit :</p>
+      <p>• <b>Menteur !</b> On soulève le gobelet. Si les dés valent au moins l'annonce, l'accusateur perd un jeton ; sinon c'est le menteur.</p>
+      <p>• <b>Je te crois</b> : il regarde les dés, choisit pour chacun de le laisser <b>sous le gobelet</b> (caché), de le poser <b>sur la table</b> (visible) ou de le <b>relancer</b>. Puis il doit annoncer <b>plus fort</b> — vrai ou bluff.</p>
+      <p><b>Ordre des combinaisons :</b> Paire &lt; Double paire &lt; Brelan &lt; Petite suite (9→R) &lt; Grande suite (10→A) &lt; Full &lt; Carré &lt; Poker (5 dés identiques). À combinaison égale, la plus haute valeur gagne (As &gt; Roi &gt; Dame &gt; Valet &gt; 10 &gt; 9).</p>
+      <p>Le perdant d'un « menteur » commence la manche suivante. Sans jeton, on est éliminé. Le dernier en jeu gagne.</p>
+    </details>
+  </div>`;
+}
+
+function render() {
+  let html = '';
+  switch (S.screen) {
+    case 'setup':
+      html = setupHTML();
+      break;
+
+    case 'handoff':
+      html = `${playersBar()}<div class="handoff">
+        <div class="phone">📱</div>
+        <h2>Passe le téléphone à<br><span>${esc(S.players[S.current].name)}</span></h2>
+        <p class="msg">${S.msg}</p>
+        <button class="btn primary big" data-act="iam">Je suis ${esc(S.players[S.current].name)}</button>
+        <p class="hint">Les autres, ne regardez pas l'écran 👀</p>
+      </div>`;
+      break;
+
+    case 'bot':
+      html = `${playersBar()}${claimBanner()}
+        ${feltHTML()}
+        <div class="actions"><p class="msg">${S.msg}</p>
+        <p class="thinking">🤖 ${esc(S.players[S.current].name)} réfléchit<span class="dots"></span></p></div>`;
+      break;
+
+    case 'turn': {
+      const me = esc(S.players[S.current].name);
+      html = playersBar();
+      if (S.phase === 'first') {
+        html += `${claimBanner()}<div class="msg top">${S.msg}</div>${feltHTML({ shake: true })}
+          <div class="actions"><p class="hint big">📳 ${me}, secoue le téléphone pour lancer les dés</p>
+          <button class="btn primary" data-act="roll">🎲 Lancer les dés</button></div>`;
+      } else if (S.phase === 'decide') {
+        const canBelieve = claimsAbove(S.round.claim).length > 0;
+        html += `${claimBanner()}<div class="msg top">${S.msg}</div>${historyHTML()}${feltHTML()}
+          <div class="actions">
+            <p class="hint">${me}, tu le crois ?</p>
+            <div class="row2">
+              <button class="btn danger" data-act="liar">Menteur !</button>
+              <button class="btn good" data-act="believe" ${canBelieve ? '' : 'disabled'}>Je te crois</button>
+            </div>
+          </div>`;
+      } else if (S.phase === 'arrange') {
+        html += `${claimBanner()}${arrangeHTML()}`;
+      } else if (S.phase === 'announce') {
+        html += `${claimBanner()}${feltHTML({ open: true, tap: true })}
+          <p class="hint small">Touche un dé pour le poser sur la table ou le cacher sous le gobelet.</p>
+          ${pickerHTML()}`;
+      }
+      break;
+    }
+
+    case 'reveal': {
+      const R = S.reveal;
+      html = `${playersBar()}<div class="reveal">
+        <h2 class="shout">« Menteur ! »</h2>
+        <p>${pn(R.caller)} accuse ${pn(R.claimer)} qui annonçait <b>${handName(R.claim)}</b>.</p>
+        ${feltHTML({ open: true, reveal: true })}
+        <p class="actual">Sous le gobelet : <b>${handName(R.actual)}</b></p>
+        <div class="verdict ${R.truth ? 'truth' : 'lie'}">
+          ${R.truth ? `C'était vrai ! ${pn(R.caller)} perd un jeton.` : `C'était du bluff ! ${pn(R.claimer)} perd un jeton.`}
+          ${S.players[R.loser].lives <= 0 ? `<br>${pn(R.loser)} est éliminé·e.` : ''}
+        </div>
+        <button class="btn primary big" data-act="next">Continuer</button>
+      </div>`;
+      break;
+    }
+
+    case 'end': {
+      const w = alive()[0];
+      html = `<div class="end">
+        <div class="trophy">🏆</div>
+        <h2>${esc(w ? w.name : '?')} gagne !</h2>
+        <button class="btn primary big" data-act="again">Rejouer</button>
+        <button class="btn ghost" data-act="menu">Menu</button>
+      </div>`;
+      break;
+    }
+  }
+  $app.innerHTML = html;
+  $app.dataset.screen = S.screen;
+  armShake();
+}
+
+render();
