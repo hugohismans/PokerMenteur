@@ -33,6 +33,7 @@ const hatIdx = () => O.dice.map((_, i) => i).filter(i => !O.table[i]);
 const tableIdx = () => O.dice.map((_, i) => i).filter(i => O.table[i]);
 
 function oralShakeHat() {
+  if (S.busy) return;
   const idx = hatIdx();
   if (!idx.length) return;
   idx.forEach(i => { O.dice[i] = rollDie(); });
@@ -46,10 +47,38 @@ function oralRollTable() {
   const idx = tableIdx();
   if (!idx.length) return;
   idx.forEach(i => { O.dice[i] = rollDie(); });
-  O.rolled = idx;
+  O.rolled = [];
   O.log.rolled += idx.length;
-  Sound.land(); vibrate([30, 40, 30]);
+  O.throwing = idx;
   render();
+  O.throwing = [];
+  animateThrow(idx);
+}
+
+// Les dés lancés roulent sur le tapis : faces qui défilent, rebonds, claquements
+const THROW_MS = 1100;
+function animateThrow(idx) {
+  S.busy = true;
+  idx.forEach((i, k) => {
+    const el = document.querySelector(`#tableDice [data-arg="${i}"]`);
+    if (!el) return;
+    const delay = k * 90;
+    const flick = setInterval(() => setFace(el, rollDie()), 75);
+    setTimeout(() => { clearInterval(flick); setFace(el, O.dice[i]); }, delay + THROW_MS * 0.72);
+    // un claquement à chaque rebond
+    [0.38, 0.6, 0.78].forEach((t, j) => Sound.click(0.55 - j * 0.15, (delay + THROW_MS * t) / 1000));
+  });
+  vibrate([0, 400, 30, 150, 20]);
+  setTimeout(() => {
+    document.querySelectorAll('#tableDice .throw').forEach(e => e.classList.remove('throw'));
+    S.busy = false;
+  }, THROW_MS + idx.length * 90);
+}
+
+function setFace(el, v) {
+  el.className = el.className.replace(/\bf\d\b/, 'f' + v);
+  el.querySelector('.fv').textContent = FACES[v];
+  el.querySelector('.fs').textContent = SUITS[v];
 }
 
 // Anime l'élément secoué (le chapeau ou les dés de la table) avant de lancer
@@ -75,8 +104,9 @@ Object.assign(actions, {
     render();
   },
   oralShake() { Sound.init(); fakeShake(oralShakeHat); },
-  oralRoll() { Sound.init(); fakeShake(oralRollTable, 'tableDice', 4); },
+  oralRoll() { if (S.busy) return; Sound.init(); oralRollTable(); },
   oralTap(i) {
+    if (S.busy) return;
     i = +i;
     if (O.table[i]) { O.table[i] = false; O.log.back++; }
     else if (O.open) { O.table[i] = true; O.log.out++; }
@@ -121,7 +151,16 @@ function oralBar() {
 
 function oralDie(i, tap) {
   const v = O.dice[i];
-  const cls = ['die', 'f' + v, O.rolled.includes(i) ? 'rolled' : ''].join(' ');
+  const k = (O.throwing || []).indexOf(i);
+  const cls = ['die', 'f' + v, O.rolled.includes(i) ? 'rolled' : '', k >= 0 ? 'throw' : ''].join(' ');
+  if (k >= 0) {
+    // trajectoire un peu différente pour chaque dé
+    const r = (a, b) => a + Math.random() * (b - a);
+    const style = `animation-delay:${k * 90}ms;--dx:${r(-260, -180)}px;--dy:${r(-30, 50)}px;` +
+      `--r0:${r(-900, -540)}deg;--r1:${r(-200, -90)}deg;--r2:${r(10, 40)}deg;--hop:${r(-34, -18)}px`;
+    const inner0 = `<span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span>`;
+    return `<button class="${cls}" style="${style}" data-act="oralTap" data-arg="${i}">${inner0}</button>`;
+  }
   const inner = `<span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span>`;
   return tap
     ? `<button class="${cls}" style="animation-delay:${i * 50}ms" data-act="oralTap" data-arg="${i}">${inner}</button>`
