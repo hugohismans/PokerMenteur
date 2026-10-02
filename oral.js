@@ -9,6 +9,7 @@ const O = {
   open: false, rolled: [], armed: false, armT: null,
   mixed: false, // lancer du tour déjà fait (chapeau OU table)
   last: null,   // dernier lancer : { where: 'hat' | 'table', n }
+  peeked: false, // a regardé dans le chapeau pendant ce tour : il a accepté, plus de « Chapeau ! »
 };
 
 // La partie (joueurs dans l'ordre des aiguilles d'une montre, fiches, pot, phase)
@@ -26,7 +27,7 @@ function saveGame() {
   try {
     localStorage.setItem('pm-game', JSON.stringify({
       G, screen: S.screen,
-      O: { dice: O.dice, table: O.table, mixed: O.mixed, last: O.last },
+      O: { dice: O.dice, table: O.table, mixed: O.mixed, last: O.last, peeked: O.peeked },
     }));
   } catch (e) {}
 }
@@ -71,7 +72,7 @@ function newRound(starter) {
   O.dice = O.dice.map(rollDie);
   O.table = [false, false, false, false, false];
   O.open = false; O.rolled = []; O.armed = false;
-  O.mixed = false; O.last = null;
+  O.mixed = false; O.last = null; O.peeked = false;
   if (full()) {
     G.current = starter; G.prev = null; G.roundDir = null;
     G.msg = (G.msg ? G.msg + ' ' : '') + `Nouvelle manche : ${P(starter)} commence.`;
@@ -337,6 +338,7 @@ Object.assign(actions, {
   oralPeek() {
     if (S.busy) return;
     O.open = !O.open;
+    if (O.open) O.peeked = true;
     O.rolled = [];
     Sound.init();
     O.open ? Sound.hatOpen() : Sound.hatClose();
@@ -356,7 +358,7 @@ Object.assign(actions, {
       note = ` On tourne dans le ${dirName(dir)}.`;
     }
     G.prev = from; G.current = to;
-    O.mixed = false; O.armed = false;
+    O.mixed = false; O.peeked = false; O.armed = false;
     G.msg = `${P(from)} passe le chapeau à ${P(to)}.${note}`;
     Sound.click(0.5); vibrate(30);
     render();
@@ -364,12 +366,12 @@ Object.assign(actions, {
   // Mode simple : on passe le téléphone, ce qui débloque le lancer pour le joueur suivant
   oralPassSimple() {
     if (O.open || S.busy) return;
-    O.mixed = false; O.armed = false; O.rolled = [];
+    O.mixed = false; O.peeked = false; O.armed = false; O.rolled = [];
     Sound.click(0.5); vibrate(30);
     render();
   },
   oralHat() {
-    if (full() && G.prev == null) return;
+    if ((full() && G.prev == null) || hatBlocked()) return;
     if (!O.armed) {
       O.armed = true; render();
       clearTimeout(O.armT);
@@ -464,6 +466,16 @@ function passButtons() {
     <div class="row2">${btn(1, cw, '📱 ↻ %')}${btn(-1, ccw, '% ↺ 📱')}</div>`;
 }
 
+// Regarder dans le chapeau ou lancer, c'est accepter l'annonce : on ne peut plus dire « Chapeau ! »
+const hatBlocked = () => O.peeked || O.mixed;
+function hatButton(target) {
+  const off = (full() && G.prev == null) || hatBlocked();
+  const label = O.armed ? 'Sûr ? Touche encore'
+    : hatBlocked() ? `🎩 Chapeau ! <small>(${O.peeked ? 'tu as regardé' : 'tu as lancé'} : tu acceptes)</small>`
+    : target ? `🎩 Chapeau à ${esc(target)} !` : '🎩 Chapeau !';
+  return `<button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="oralHat" ${off ? 'disabled' : ''}>${label}</button>`;
+}
+
 function peekButton(label) {
   if (O.open) return '<button class="btn ghost" data-act="oralPeek">🙈 Refermer le chapeau</button>';
   return `<button class="btn" data-act="oralPeek">${label}</button>`;
@@ -499,7 +511,7 @@ function oralHTML() {
         ${diceButtons}
         <button class="btn primary" data-act="oralPassSimple" ${O.open ? 'disabled' : ''}>📱 Passer au suivant</button>
         ${O.open ? '<p class="hint small">Referme le chapeau pour passer le téléphone.</p>' : ''}
-        <button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="oralHat">${O.armed ? 'Sûr ? Touche encore' : '🎩 Chapeau !'}</button>
+        ${hatButton(null)}
       </div>`;
   }
 
@@ -516,8 +528,7 @@ function oralHTML() {
       ${diceButtons}
       ${passButtons()}
       ${O.open ? '<p class="hint small">Referme le chapeau pour passer le téléphone.</p>' : ''}
-      <button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="oralHat" ${G.prev == null ? 'disabled' : ''}>${
-        O.armed ? 'Sûr ? Touche encore' : G.prev == null ? '🎩 Chapeau !' : `🎩 Chapeau à ${esc(G.players[G.prev].name)} !`}</button>
+      ${hatButton(G.prev == null ? null : G.players[G.prev].name)}
     </div>`;
 }
 

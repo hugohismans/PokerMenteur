@@ -335,3 +335,4 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 
 .ptable > .phase { top: 0; left: 0; transform: none; background: rgba(0,0,0,.3); padding: 2px 8px; border-radius: 99px; }
 #app[data-screen="oral"] .dice-row.peek { gap: 5px; padding: 6px 4px; }
+.btn.big small { display: block; }

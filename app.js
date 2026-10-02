@@ -519,7 +519,7 @@ function setupHTML() {
       <p>• <b>un seul lancer par tour</b> : soit on mélange le chapeau, soit on lance la table ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ou en les faisant glisser ;</p>
       <p>• puis tu annonces plus fort que le précédent, tu refermes le chapeau et tu <b>passes</b> le téléphone.</p>
-      <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau, tout le monde voit les dés, et on indique <b>qui a perdu</b>.</p>
+      <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>, mais seulement <b>avant</b> d'avoir regardé dans le chapeau ou lancé : regarder, c'est accepter. On lève le chapeau, tout le monde voit les dés, et on indique <b>qui a perdu</b>.</p>
       <p><b>Deux modes :</b> <b>Simple</b> (seulement les dés et le chapeau, vos fiches sont sur la vraie table) ou <b>Complet</b> (l'appli gère les joueurs et les fiches).</p>
       <p><b>Les fiches (mode complet) :</b> au départ, il y a 2 × le nombre de joueurs + 1 fiches au milieu de la table. Une roue tire au sort qui commence.</p>
       <p>• <b>La charge</b> : le perdant prend une fiche du pot. Au début de chaque manche, le premier qui passe le téléphone choisit le sens : à sa gauche, on tourne dans le sens des aiguilles d'une montre ; à sa droite, dans l'autre sens.</p>
