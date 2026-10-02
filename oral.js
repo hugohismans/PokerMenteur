@@ -81,7 +81,9 @@ Object.assign(actions, {
   oralPeek() {
     O.open = !O.open;
     O.rolled = [];
-    Sound.click(0.3);
+    Sound.init();
+    O.open ? Sound.hatOpen() : Sound.hatClose();
+    vibrate([40, 70, 40]);
     render();
   },
   oralShake() { Sound.init(); fakeShake(oralShakeHat); },

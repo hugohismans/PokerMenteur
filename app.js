@@ -41,6 +41,24 @@ const Sound = {
   liar() { this.tone(180, 0.35, 0, 'sawtooth', 0.15); this.tone(140, 0.45, 0.18, 'sawtooth', 0.15); },
   good() { this.tone(523, 0.15); this.tone(784, 0.25, 0.12); },
   win() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, i * 0.13)); },
+  // Coup sec de bloc de bois : note qui chute très vite + attaque bruitée
+  knock(freq, when = 0, vol = 0.7) {
+    if (this.muted || !this.ctx) return;
+    const c = this.ctx, t = c.currentTime + when;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + 0.1);
+    this.click(vol * 0.8, when);
+  },
+  // Ouvrir le chapeau : « tac-tac » qui monte ; le refermer : qui descend
+  hatOpen() { this.knock(900, 0); this.knock(1350, 0.11); },
+  hatClose() { this.knock(1250, 0); this.knock(800, 0.11); },
   // Accord de cuivres : dents de scie filtrées, petite attaque, léger vibrato
   brass(freqs, when, dur, vol = 0.05) {
     if (this.muted || !this.ctx) return;
