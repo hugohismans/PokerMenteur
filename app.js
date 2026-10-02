@@ -288,6 +288,7 @@ const actions = {
     clearTimeout(S.botTimer);
     S.screen = 'setup'; render();
   },
+  diceStyle(s) { setDiceStyle(s); render(); },
   mute() {
     S.muted = Sound.muted = !Sound.muted;
     try { localStorage.setItem('pm-muted', S.muted ? '1' : '0'); } catch (e) {}
@@ -318,7 +319,7 @@ const HAT_SVG = `<svg viewBox="0 0 120 110" aria-hidden="true">
 function dieHTML(v, i, o = {}) {
   const cls = ['die', 'f' + v, o.cls || '', S.rolled.includes(i) && o.anim !== false ? 'rolled' : ''].join(' ');
   const delay = `style="animation-delay:${(i % 5) * 50}ms"`;
-  const inner = `<span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span>`;
+  const inner = faceInner(v);
   return o.tap
     ? `<button class="${cls}" ${delay} data-act="tapDie" data-arg="${i}">${inner}${o.badge || ''}</button>`
     : `<div class="${cls}" ${delay}>${inner}${o.badge || ''}</div>`;
@@ -423,12 +424,21 @@ function setupHTML() {
   const P = S.setup.players;
   return `<div class="setup">
     <header class="hero">
-      <div class="hero-dice">${[5, 4, 3, 2, 1].map(v => `<div class="die f${v}"><span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span></div>`).join('')}</div>
+      <div class="hero-dice">${[5, 4, 3, 2, 1].map(v => `<div class="die f${v}">${faceInner(v)}</div>`).join('')}</div>
       <h1>Poker Menteur</h1>
       <p>Lance, cache, bluffe… et démasque les menteurs.</p>
     </header>
     <button class="btn primary big" data-act="oralStart">🎩 Jouer</button>
     <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
+    <section class="card">
+      <h2>Style des dés</h2>
+      <div class="styles">${Object.keys(DICE_STYLES).map(s => `
+        <button class="style-opt ${diceStyle === s ? 'on' : ''}" data-act="diceStyle" data-arg="${s}">
+          <span class="mini">${[4, 3, 2, 5].map(v => `<span class="die f${v}">${faceInnerAs(s, v)}</span>`).join('')}</span>
+          <b>${DICE_STYLES[s]}</b>
+        </button>`).join('')}
+      </div>
+    </section>
     <details class="card bots">
       <summary>🤖 Jouer avec les annonces dans l'appli (contre l'ordinateur)</summary>
       ${P.map((p, i) => `<div class="prow">

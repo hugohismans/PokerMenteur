@@ -66,14 +66,17 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
   position: relative; flex: none; padding: 0; line-height: 1;
   font-family: Georgia, "Times New Roman", serif; font-weight: 700;
 }
-.die .fv { font-size: calc(var(--s) * .44); }
-.die .fs { font-size: calc(var(--s) * .24); margin-top: 2px; }
+.die .fv { font-size: calc(var(--s) * .5); }
+/* 9 noir, 10 rouge, Valet bleu, Dame verte, Roi rouge, As noir */
 .die.f0 { color: #1b1b1b; }
 .die.f1 { color: #c0262d; }
 .die.f2 { color: #1f4fbf; }
-.die.f3 { color: #c0262d; }
-.die.f4 { color: #1b1b1b; }
-.die.f5 { color: #c0262d; }
+.die.f3 { color: #1d7a3a; }
+.die.f4 { color: #c0262d; }
+.die.f5 { color: #1b1b1b; }
+.die .fig { width: 86%; height: 86%; display: block; }
+.die .corner { position: absolute; top: 6%; left: 9%; font-size: calc(var(--s) * .2); line-height: 1; }
+.die .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .die.rolled { animation: tumble .55s cubic-bezier(.2,.8,.3,1.2) both; }
 @keyframes tumble {
   0% { transform: translateY(-40px) rotate(-200deg) scale(.6); opacity: 0; }
@@ -230,3 +233,10 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
   100% { transform: none; }
 }
 .apptitle { flex: 1; align-self: center; font: 700 1.2rem Georgia, serif; color: var(--gold); }
+
+/* Choix du style des dés */
+.styles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.style-opt { background: rgba(255,255,255,.08); border-radius: 14px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 8px; border: 2px solid transparent; }
+.style-opt.on { border-color: var(--gold); background: rgba(227,179,65,.15); }
+.style-opt .mini { display: flex; gap: 4px; }
+.style-opt .die { --s: 34px; }

@@ -4,7 +4,6 @@
 const FACES = ['9', '10', 'V', 'D', 'R', 'A'];
 const FACE_NAMES = ['9', '10', 'Valet', 'Dame', 'Roi', 'As'];
 const PLURAL = ['9', '10', 'Valets', 'Dames', 'Rois', 'As'];
-const SUITS = ['♠', '♥', '♣', '♦', '♠', '♥'];
 const TYPE_NAMES = ['Rien', 'Paire', 'Double paire', 'Brelan', 'Petite suite', 'Grande suite', 'Full', 'Carré', 'Poker'];
 
 // Une main : t = type (0..8), a / b = valeurs de faces (0..5)

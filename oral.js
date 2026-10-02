@@ -60,8 +60,7 @@ function animateThrow(idx) {
 
 function setFace(el, v) {
   el.className = el.className.replace(/\bf\d\b/, 'f' + v);
-  el.querySelector('.fv').textContent = FACES[v];
-  el.querySelector('.fs').textContent = SUITS[v];
+  el.innerHTML = faceInner(v);
 }
 
 // Fait trembler le chapeau quelques instants avant de mélanger
@@ -131,10 +130,10 @@ function oralDie(i, tap) {
     const r = (a, b) => a + Math.random() * (b - a);
     const style = `animation-delay:${k * 90}ms;--dx:${r(-260, -180)}px;--dy:${r(-30, 50)}px;` +
       `--r0:${r(-900, -540)}deg;--r1:${r(-200, -90)}deg;--r2:${r(10, 40)}deg;--hop:${r(-34, -18)}px`;
-    const inner0 = `<span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span>`;
+    const inner0 = faceInner(v);
     return `<button class="${cls}" style="${style}" data-act="oralTap" data-arg="${i}">${inner0}</button>`;
   }
-  const inner = `<span class="fv">${FACES[v]}</span><span class="fs">${SUITS[v]}</span>`;
+  const inner = faceInner(v);
   return tap
     ? `<button class="${cls}" style="animation-delay:${i * 50}ms" data-act="oralTap" data-arg="${i}">${inner}</button>`
     : `<div class="${cls}" style="animation-delay:${i * 50}ms">${inner}</div>`;
