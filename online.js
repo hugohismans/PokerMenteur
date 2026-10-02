@@ -374,6 +374,13 @@ function passTurn(x, dir) {
   setDeadline(x, turnSecs());
   x.msg = `${B(from)} passe le chapeau à ${B(to)}.${note}`;
   x.ev = ev('pass');
+  // Après un poker, plus rien n'est possible : le suivant fait « Chapeau ! » automatiquement
+  if (x.claim && x.prev === x.claimer && claimParts(x.claim).t === 8) {
+    const summary = resolveHat(x);
+    x.msg = `Poker annoncé : chapeau automatique ! ${x.msg}`;
+    return summary;
+  }
+  return '';
 }
 
 // « Chapeau ! » du joueur en cours contre l'annonce du précédent ; renvoie le résumé pour le chat
@@ -623,7 +630,7 @@ Object.assign(actions, {
   onAnnounce() {
     const c = ON.compose.slice(), x = g();
     if (!c.length || !myTurn(x) || x.announced || (x.claim && cmpClaims(c, x.claim) <= 0)) return;
-    let passed = true;
+    let passed = true, summary = '';
     mutate(y => {
       if (!myTurn(y) || y.announced || (y.claim && cmpClaims(c, y.claim) <= 0)) return false;
       y.claim = sortClaim(c); y.claimer = me; y.announced = true; y.open = false;
@@ -631,17 +638,18 @@ Object.assign(actions, {
       // Le tour passe tout seul, sauf s'il faut d'abord choisir le sens (début de la charge)
       const needDir = y.phase === 'charge' && y.roundDir == null && nextActive(y, me, 1) !== nextActive(y, me, -1);
       if (needDir) { passed = false; y.msg = said; y.ev = ev('announce'); return; }
-      passTurn(y, y.phase === 'decharge' ? y.dir : (y.roundDir || 1));
+      summary = passTurn(y, y.phase === 'decharge' ? y.dir : (y.roundDir || 1));
       y.msg = `${said} ${y.msg}`;
-    });
+    }).then(() => summary && sysChat(summary));
     ON.compose = [];
     sysChat(`📣 ${ON.pseudo} annonce : ${claimName(c)}`);
   },
   onPass(dir) {
+    let summary = '';
     mutate(x => {
       if (!myTurn(x) || x.open || !x.announced) return false;
-      passTurn(x, +dir);
-    });
+      summary = passTurn(x, +dir);
+    }).then(() => summary && sysChat(summary));
   },
   onHat() {
     const x0 = g();
@@ -947,7 +955,7 @@ function playHTML(x) {
       </div>`;
   }
   return `${onlineTopbar('🎩 ' + esc(ON.room.meta.name))}
-    ${mine ? playersStripHTML(G) : pokerTableHTML(G)}
+    ${mine && !roomyTable ? playersStripHTML(G) : pokerTableHTML(G)}
     ${x.msg && !mine ? `<p class="gmsg">${x.msg}</p>` : ''}
     ${info}
     ${claimBanner}

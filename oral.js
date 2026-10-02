@@ -477,6 +477,7 @@ document.addEventListener('input', e => {
 // Après chaque affichage : sauvegarde et animation des fiches
 function afterRender() {
   armShake();
+  fitTable();
   animateTable();
   if (typeof onlineAfterRender === 'function') onlineAfterRender();
   if (G && GAME_SCREENS.includes(S.screen)) saveGame();
@@ -604,9 +605,9 @@ function oralHTML() {
   G.tableFaces = tableIdx().map(i => O.dice[i]);
   G.hatAt = G.current;
   G.hatOpen = false;
-  // Chapeau ouvert : la table devient une simple ligne pour laisser la place aux dés
+  // Chapeau ouvert sur un petit écran : la table devient une simple ligne pour laisser la place aux dés
   return `${oralBar()}
-    ${O.open ? playersStripHTML(G) : pokerTableHTML(G)}
+    ${O.open && !roomyTable ? playersStripHTML(G) : pokerTableHTML(G)}
     ${G.msg && !O.open ? `<p class="gmsg">${G.msg}</p>` : ''}
     ${lastRollHTML()}
     ${oralFelt(false)}

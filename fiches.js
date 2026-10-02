@@ -87,7 +87,9 @@ function pokerTableHTML(G) {
   // Le chapeau, posé devant le joueur dont c'est le tour
   let hat = '';
   if (G.hatAt != null && G.hatAt >= 0) {
-    const h = toward(G.hatAt, 0.42);
+    // un peu sur le côté du joueur, pour ne pas cacher le pot ni son nom
+    const ang = Math.PI / 2 + (G.hatAt * 2 * Math.PI) / n - 0.5;
+    const h = { x: 50 + 41 * 0.62 * Math.cos(ang), y: 50 + 38 * 0.62 * Math.sin(ang) };
     hat = `<div class="tbl-hat ${G.hatOpen ? 'open' : ''}" id="tblHat" data-x="${h.x.toFixed(1)}" data-y="${h.y.toFixed(1)}" style="left:${h.x.toFixed(1)}%;top:${h.y.toFixed(1)}%">${HAT_SVG}</div>`;
   }
   // La dernière annonce, dans une bulle près de celui qui l'a faite
@@ -157,6 +159,20 @@ function flyToken(type, fromId, toId) {
   }));
   setTimeout(() => { b.classList.add('bump'); Sound.clink && Sound.clink(); }, 750);
   setTimeout(() => { t.remove(); b.classList.remove('bump'); }, 1200);
+}
+
+// Pendant son tour, la table entière n'est gardée que si l'écran a la place (sinon une simple ligne).
+// On mesure après chaque affichage : assez de vide → on remet la table ; ça déborde → on revient à la ligne.
+let roomyTable = false;
+function fitTable() {
+  const felt = document.querySelector('#app .felt'), act = document.querySelector('#app .actions');
+  if (!felt || !act) return;
+  const strip = document.querySelector('#app .pstrip'), table = document.querySelector('#app .ptable');
+  if (strip && !table && !roomyTable && act.getBoundingClientRect().top - felt.getBoundingClientRect().bottom > 150) {
+    roomyTable = true; render();
+  } else if (roomyTable && table && strip === null && document.scrollingElement.scrollHeight > innerHeight + 2) {
+    roomyTable = false; render();
+  }
 }
 
 // Version compacte : une ligne avec les joueurs et leurs fiches
