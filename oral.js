@@ -408,6 +408,7 @@ Object.assign(actions, {
     if (!O.open && O.last == null) return; // début de manche : on mélange avant de regarder
     O.open = !O.open;
     if (O.open) O.peeked = true;
+    O.hatAnim = O.open ? 'lift' : 'drop';
     O.rolled = [];
     Sound.init();
     O.open ? Sound.hatOpen() : Sound.hatClose();
@@ -517,13 +518,23 @@ function oralFelt(reveal) {
   const t = tableIdx(), h = hatIdx();
   const open = reveal || O.open;
   const who = full() ? `${esc(G.players[G.current].name)} seul les voit` : 'toi seul les vois';
+  // Le chapeau est le bouton : on le touche pour regarder, « Refermer ✕ » pour le reposer
+  const tap = !reveal && O.hatTap !== false, canOpen = O.open || O.last != null;
+  const anim = O.hatAnim; O.hatAnim = null; // animation jouée une seule fois
   const hatZone = open
-    ? `<div class="dice-row under ${reveal ? '' : 'peek'}" id="cup">${h.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">chapeau vide</span>'}</div>`
-    : `<div class="cup-wrap"><div class="cup ${h.length ? 'ready' : ''}" id="cup">${HAT_SVG}<span class="cnt">${h.length}</span></div></div>`;
-  return `<div class="felt">
+    ? `<div class="peekzone ${anim === 'lift' ? 'lifting' : ''}">
+        ${reveal ? '' : '<button class="hat-close" data-act="oralPeek" aria-label="Refermer le chapeau"><span class="mini-hat">' + HAT_SVG + '</span>Refermer ✕</button>'}
+        <div class="dice-row under ${reveal ? '' : 'peek'}" id="cup">${h.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">chapeau vide</span>'}</div>
+      </div>`
+    : `<${tap && canOpen ? 'button data-act="oralPeek"' : 'div'} class="cup-wrap hatbtn" aria-label="Regarder dans le chapeau">
+        <div class="cup ${h.length ? 'ready' : ''} ${anim === 'drop' ? 'dropping' : ''} ${O.othersPeek ? 'peeking' : ''}" id="cup">${HAT_SVG}<span class="cnt">${h.length}</span></div>
+        ${O.othersPeek ? `<span class="hat-hint">👀 ${esc(O.othersPeek)} regarde</span>`
+          : tap ? `<span class="hat-hint ${canOpen ? '' : 'off'}">${canOpen ? '👆 Touche pour regarder' : 'Mélange d\'abord pour regarder'}</span>` : ''}
+      </${tap && canOpen ? 'button' : 'div'}>`;
+  return `<div class="felt ${open ? '' : 'side'}">
     <div class="zone" data-zone="table"><div class="zl">Sur la table · visibles par tous</div>
       <div class="dice-row" id="tableDice">${t.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">aucun dé</span>'}</div></div>
-    <div class="zone" data-zone="hat"><div class="zl">${reveal ? 'Dans le chapeau · levé !' : open ? `Dans le chapeau · ${who}` : 'Dans le chapeau'}</div>
+    <div class="zone" data-zone="hat"><div class="zl">${reveal ? 'Dans le chapeau · levé !' : open ? `Dans le chapeau<span class="who"> · ${who}</span>` : 'Dans le chapeau'}</div>
       ${hatZone}
     </div>
   </div>`;
@@ -554,11 +565,6 @@ function hatButton(target) {
   return `<button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="oralHat" ${off ? 'disabled' : ''}>${label}</button>`;
 }
 
-function peekButton(label) {
-  if (O.open) return '<button class="btn ghost" data-act="oralPeek">🙈 Refermer le chapeau</button>';
-  if (O.last == null) return '<button class="btn" data-act="oralPeek" disabled>👀 Mélange d\'abord pour regarder</button>';
-  return `<button class="btn" data-act="oralPeek">${label}</button>`;
-}
 
 function lastRollHTML() {
   const L = O.last;
@@ -587,7 +593,6 @@ function oralHTML() {
       ${oralFelt(false)}
       ${mine}
       <div class="actions">
-        ${peekButton('👀 Regarder dans le chapeau')}
         ${diceButtons}
         <button class="btn primary" data-act="oralPassSimple" ${O.open ? 'disabled' : ''}>📱 Passer au suivant</button>
         ${O.open ? '<p class="hint small">Referme le chapeau pour passer le téléphone.</p>' : ''}
@@ -595,7 +600,6 @@ function oralHTML() {
       </div>`;
   }
 
-  const me = esc(G.players[G.current].name);
   // Chapeau ouvert : la table devient une simple ligne pour laisser la place aux dés
   return `${oralBar()}
     ${O.open ? playersStripHTML(G) : pokerTableHTML(G)}
@@ -604,7 +608,6 @@ function oralHTML() {
     ${oralFelt(false)}
     ${mine}
     <div class="actions">
-      ${peekButton(`👀 ${me} regarde dans le chapeau`)}
       ${diceButtons}
       ${passButtons()}
       ${O.open ? '<p class="hint small">Referme le chapeau pour passer le téléphone.</p>' : ''}

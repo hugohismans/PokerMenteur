@@ -581,6 +581,7 @@ Object.assign(actions, {
   onPeek() {
     if (!canPeek(g())) return;
     const wasOpen = !!(g() && g().open);
+    O.hatAnim = wasOpen ? 'drop' : 'lift';
     wasOpen ? Sound.hatClose() : Sound.hatOpen();
     vibrate([40, 70, 40]);
     mutate(x => {
@@ -710,6 +711,10 @@ const canPeek = x => myTurn(x) && (x.open || x.last != null);
 
 const canCallHat = x => myTurn(x) && x.claim && x.prev && !x.peeked && !x.mixed && !x.announced;
 
+// Toucher le chapeau : en ligne, c'est l'action « regarder / refermer » partagée
+const localPeek = actions.oralPeek;
+actions.oralPeek = () => (S.screen === 'onlineRoom' ? actions.onPeek() : localPeek());
+
 // Toucher ou glisser un dé : en ligne, on modifie l'état partagé
 const localMove = window.moveDie;
 window.moveDie = (i, where) => {
@@ -765,6 +770,8 @@ function mapToLocal(x) {
   O.dice = x.dice.slice(); O.table = x.table.slice();
   // Hors de mon tour, les dés sont figés pour moi (O.mixed les rend non touchables)
   O.open = mine && x.open; O.mixed = x.mixed || !mine; O.last = x.last; O.peeked = x.peeked;
+  O.hatTap = mine;
+  O.othersPeek = !mine && x.open ? x.names[x.cur] : null;
   O.rolled = [];
 }
 
@@ -871,9 +878,8 @@ function claimPickerHTML(x) {
     ? `<button class="die f${chosen[k]}" data-act="cDel" data-arg="${c.indexOf(chosen[k])}" aria-label="Retirer">${faceInner(chosen[k])}</button>`
     : '<span class="slot"></span>').join('');
   return `<div class="picker compose">
-    <div class="mine">📣 Qu'annonces-tu ?</div>
     <div class="slots">${slots}</div>
-    <div class="cname ${c.length && !ok ? 'bad' : ''}">${!c.length ? 'Touche les dés à annoncer (1 à 5)'
+    <div class="cname ${c.length && !ok ? 'bad' : ''}">${!c.length ? '📣 Qu\'annonces-tu ?'
       : ok ? `${claimName(c)} ${bluff ? '<span class="tag">bluff 😏</span>' : ''}`
       : `${claimName(c)} : trop faible, il faut dépasser ${claimName(x.claim)}`}</div>
     <div class="facebar">${[0, 1, 2, 3, 4, 5].map(v => `<button class="die f${v}" data-act="cAdd" data-arg="${v}" ${c.length >= 5 ? 'disabled' : ''}>${faceInner(v)}</button>`).join('')}</div>
@@ -884,29 +890,34 @@ function claimPickerHTML(x) {
   </div>`;
 }
 
+// Dernier lancer en petite étiquette (pour gagner de la place)
+function lastRollChip(x) {
+  const L = x.last;
+  if (!L) return '';
+  return `<span class="chip-info ${L.where}">${L.where === 'hat' ? `🎩 mélangé (${L.n})` : `🎲 table (${L.n})`}</span>`;
+}
+
 function playHTML(x) {
   const mine = myTurn(x), cur = x.cur;
   const spect = Object.values(ON.room.spectators || {}).length;
-  const info = `<div class="infoline">${timerHTML(x)}${!x.order.includes(me) ? '<span class="tag-spec">👀 Tu regardes</span>' : ''}${spect ? `<span class="spec-n">👀 ${spect}</span>` : ''}</div>`;
+  const info = `<div class="infoline">${mine ? '<span class="chip-info me">🎩 À toi</span>' : ''}${timerHTML(x)}${lastRollChip(x)}${!x.order.includes(me) ? '<span class="tag-spec">👀 Tu regardes</span>' : ''}${spect ? `<span class="spec-n">👀 ${spect}</span>` : ''}</div>`;
+  // Annonce en cours sur une ligne : nom + petits dés
   const claimBanner = x.claim
-    ? `<div class="banner"><small>Annonce de ${B(x.claimer)}</small><strong>${claimName(x.claim)}</strong>${miniDice(x.claim)}</div>`
-    : '<div class="banner muted">Pas encore d\'annonce dans cette manche</div>';
+    ? `<div class="banner compact"><small>${B(x.claimer)} :</small><strong>${claimName(x.claim)}</strong>${miniDice(x.claim)}</div>`
+    : '<div class="banner compact muted">Pas encore d\'annonce</div>';
   let body;
   if (!mine) {
     const doing = x.open ? `👀 ${B(cur)} regarde dans le chapeau`
       : x.announced ? `📣 ${B(cur)} a annoncé et va passer le chapeau`
       : `⏳ À ${B(cur)} de jouer`;
-    body = `${lastRollHTML()}${oralFelt(false)}<div class="waiting">${spinningHat()}<p>${doing}</p></div>`;
+    body = `${oralFelt(false)}<p class="gmsg doing">${doing}</p>`;
   } else {
     const t = tableDiceIdx(x).length, h = hatDice(x).length, locked = x.mixed;
-    const peek = x.open ? '<button class="btn ghost" data-act="onPeek">🙈 Refermer le chapeau</button>'
-      : canPeek(x) ? '<button class="btn" data-act="onPeek">👀 Regarder dans le chapeau</button>'
-      : '<button class="btn" data-act="onPeek" disabled>👀 Mélange d\'abord pour regarder</button>';
-    const dice = `<div class="row2">
+    const dice = `<div class="row2 compact">
         <button class="btn" data-act="onShake" ${h && !locked && !x.open ? '' : 'disabled'}>🎩 Mélanger</button>
         <button class="btn" data-act="onRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
       </div>
-      <p class="hint small">${locked ? '✓ Lancer fait : un seul par tour.' : x.open ? 'Pour mélanger, referme d\'abord le chapeau.' : x.last == null ? 'Début de manche : mélange le chapeau avant de regarder.' : 'Un seul lancer par tour : mélanger le chapeau ou lancer la table.'}</p>`;
+      <p class="hint small">${locked ? '✓ Lancer fait (un seul par tour)' : x.open && h ? 'Referme le chapeau pour mélanger' : x.last == null ? 'Début de manche : mélange d\'abord' : 'Un seul lancer : chapeau ou table'}</p>`;
     let pass = '';
     if (x.announced) {
       const d = x.phase === 'decharge' ? x.dir : x.roundDir;
@@ -920,14 +931,13 @@ function playHTML(x) {
     const canHat = canCallHat(x);
     const hat = x.claim && x.prev ? `<button class="btn danger big ${O.armed ? 'armed' : ''}" data-act="onHat" ${canHat ? '' : 'disabled'}>${
       O.armed ? 'Sûr ? Touche encore' : canHat ? `🎩 Chapeau à ${nameOf(x.prev)} !` : '🎩 Chapeau ! <small>(tu as accepté l\'annonce)</small>'}</button>` : '';
-    body = `${lastRollHTML()}${oralFelt(false)}
-      ${x.open ? `<p class="mine">Avec la table : <b>${handName(evaluate(x.dice))}</b>${locked ? '' : ' · <small>touche ou fais glisser un dé</small>'}</p>` : ''}
+    // Ordre : la table (chapeau cliquable), les lancers, l'annonce, puis « Chapeau ! » tout en bas
+    body = `${oralFelt(false)}
+      ${x.open ? `<p class="mine small">Avec la table : <b>${handName(evaluate(x.dice))}</b></p>` : ''}
       <div class="actions">
-        <p class="turn">🎩 À toi de jouer !</p>
-        ${hat}
-        ${peek}
         ${dice}
         ${x.announced ? `<p class="mine">Tu as annoncé : <b>${claimName(x.claim)}</b></p>${pass}` : claimPickerHTML(x)}
+        ${hat}
       </div>`;
   }
   return `${onlineTopbar('🎩 ' + esc(ON.room.meta.name))}

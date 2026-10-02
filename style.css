@@ -443,3 +443,85 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .facebar .die:active:not(:disabled) { transform: scale(.9); }
 .facebar .die:disabled { opacity: .35; }
 .fx-card.sheet { gap: 10px; }
+
+/* ---------- Chapeau cliquable ---------- */
+.hatbtn { background: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; margin: 0 auto; }
+button.hatbtn .cup { cursor: pointer; }
+button.hatbtn:active .cup { transform: scale(.94); }
+.hat-hint { font-size: .78rem; color: var(--ink); background: rgba(0,0,0,.35); padding: 3px 10px; border-radius: 99px; animation: hint 2s ease-in-out infinite; }
+.hat-hint.off { animation: none; color: var(--muted); }
+@keyframes hint { 50% { opacity: .6; } }
+.cup.dropping { animation: hatdrop .35s cubic-bezier(.3,1.6,.6,1); }
+@keyframes hatdrop { from { transform: translateY(-40px) rotate(-10deg); opacity: .4; } }
+.cup.peeking { animation: hatpeek .4s ease-out forwards; }
+@keyframes hatpeek { to { transform: translateY(-14px) rotate(-14deg); } }
+.peekzone { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.peekzone.lifting .dice-row { animation: reveal .35s ease-out; }
+@keyframes reveal { from { transform: scale(.7) translateY(14px); opacity: 0; } }
+.hat-close { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.2); border-radius: 99px; padding: 4px 12px 4px 6px; font-size: .82rem; font-weight: 700; }
+.peekzone.lifting .hat-close .mini-hat { animation: hatlift .4s ease-out; }
+@keyframes hatlift { from { transform: translateY(30px) scale(1.6); } }
+.mini-hat { width: 26px; display: inline-block; }
+.mini-hat svg { width: 100%; display: block; }
+
+/* ---------- Écran de jeu en ligne compact ---------- */
+.chip-info { background: rgba(0,0,0,.3); border-radius: 99px; padding: 3px 10px; font-size: .8rem; font-weight: 600; }
+.chip-info.hat { box-shadow: inset 0 0 0 1.5px rgba(155,28,34,.8); }
+.chip-info.table { box-shadow: inset 0 0 0 1.5px rgba(227,179,65,.7); }
+.chip-info.me { background: var(--gold); color: #2b1a05; }
+.banner.compact { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 8px; padding: 6px 10px; }
+.banner.compact small { display: inline; }
+.banner.compact strong { font-size: 1.05rem; }
+.banner.compact .mini-dice { margin-top: 0; }
+.banner.compact .mini-dice .die { --s: 24px; }
+.banner.compact.muted { font-size: .9rem; }
+.gmsg.doing { font-size: .95rem; color: var(--ink); }
+.row2.compact .btn { padding: 10px 8px; font-size: .95rem; }
+#app[data-screen="oral"] .compose { padding: 8px; gap: 6px; }
+#app[data-screen="oral"] .compose .slots .die, #app[data-screen="oral"] .compose .slot { --s: 40px; width: 40px; height: 40px; }
+#app[data-screen="oral"] .compose .slots { min-height: 42px; }
+#app[data-screen="oral"] .facebar { padding: 6px; gap: 4px; }
+#app[data-screen="oral"] .facebar .die { --s: min(12vw, 46px); }
+
+/* ---------- Écran de jeu compact (petits téléphones) ---------- */
+/* Chapeau fermé : la table et le chapeau côte à côte sur une seule bande */
+#app[data-screen="oral"] .felt.side { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 8px 10px; }
+#app[data-screen="oral"] .felt.side .zone[data-zone="hat"] .zl { display: none; }
+#app[data-screen="oral"] .felt.side .cup { width: 74px; }
+#app[data-screen="oral"] .felt.side .dice-row { justify-content: flex-start; min-height: 0; gap: 5px; }
+#app[data-screen="oral"] .felt.side .dice-row .die { --s: min(11vw, 46px); }
+#app[data-screen="oral"] .felt.side .zl { text-align: left; font-size: .65rem; margin-bottom: 4px; }
+#app[data-screen="oral"] .felt.side .empty { font-size: .8rem; }
+#app[data-screen="oral"] .hat-hint { font-size: .7rem; padding: 2px 8px; }
+#app[data-screen="oral"] .zl { font-size: .66rem; }
+#app[data-screen="oral"] .hint.small { margin: 0; font-size: .74rem; }
+#app[data-screen="oral"] .row2.compact .btn { padding: 9px 6px; font-size: .9rem; white-space: nowrap; }
+#app[data-screen="oral"] .compose { gap: 5px; padding: 8px 8px 10px; }
+#app[data-screen="oral"] .compose .cname { font-size: .9rem; min-height: 1.2em; }
+#app[data-screen="oral"] .compose .slots .die, #app[data-screen="oral"] .compose .slot { --s: 36px; width: 36px; height: 36px; }
+#app[data-screen="oral"] .compose .slots { min-height: 36px; gap: 5px; }
+#app[data-screen="oral"] .compose .row2 .btn { padding: 9px; font-size: .95rem; }
+#app[data-screen="oral"] .facebar .die { --s: min(12vw, 44px); }
+#app[data-screen="oral"] .actions .btn.danger.big { padding: 12px; font-size: 1.1rem; }
+#app[data-screen="oral"] .banner.compact { padding: 5px 10px; }
+#app[data-screen="oral"] .topbar .icon { width: 34px; height: 34px; }
+@media (max-height: 700px) {
+  #app[data-screen="oral"] { gap: 6px; padding-top: max(6px, env(safe-area-inset-top)); }
+  #app[data-screen="oral"] .apptitle { font-size: 1.05rem; }
+}
+
+/* Chapeau ouvert : tout tient en peu de place */
+#app[data-screen="oral"] .felt:not(.side) { padding: 6px 8px; gap: 4px; }
+#app[data-screen="oral"] .felt:not(.side) .zl { text-align: left; margin-bottom: 3px; }
+#app[data-screen="oral"] .felt:not(.side) .dice-row { gap: 4px; min-height: 0; flex-wrap: nowrap; }
+#app[data-screen="oral"] .felt:not(.side) .dice-row .die { --s: min(11.5vw, 46px); }
+#app[data-screen="oral"] .felt:not(.side) .empty { font-size: .78rem; line-height: 1; }
+#app[data-screen="oral"] .dice-row.peek { padding: 5px 4px; }
+#app[data-screen="oral"] .peekzone { position: relative; }
+#app[data-screen="oral"] .peekzone .hat-close { position: absolute; right: 0; top: -27px; font-size: .74rem; padding: 2px 10px 2px 4px; z-index: 2; }
+#app[data-screen="oral"] .peekzone .mini-hat { width: 20px; }
+.mine.small { font-size: .85rem; margin: 0; }
+#app[data-screen="oral"] .infoline { gap: 5px; }
+#app[data-screen="oral"] .infoline .timer, #app[data-screen="oral"] .chip-info { font-size: .78rem; padding: 2px 8px; }
+#app[data-screen="oral"] .who { display: none; }
+#app[data-screen="oral"] .peekzone .hat-close { top: -25px; }
