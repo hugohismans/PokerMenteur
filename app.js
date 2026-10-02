@@ -492,6 +492,12 @@ function setupHTML() {
         </button>`).join('')}
       </div>
     </section>
+    <section class="card">
+      <h2>Options</h2>
+      <button class="toggle ${shakeOn ? 'on' : ''}" data-act="toggleShake">
+        <span>📳 Secouer le téléphone pour mélanger le chapeau</span><i></i>
+      </button>
+    </section>
     <details class="card bots">
       <summary>🤖 Jouer avec les annonces dans l'appli (contre l'ordinateur)</summary>
       ${P.map((p, i) => `<div class="prow">

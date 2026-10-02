@@ -169,6 +169,73 @@ function fakeShake(then, id = 'cup', steps = 7) {
   }, 90);
 }
 
+/* ---------- Option : secouer le téléphone pour mélanger le chapeau ---------- */
+let shakeOn = false;
+try { shakeOn = localStorage.getItem('pm-shake') === '1'; } catch (e) {}
+
+// Réglages de la secousse : augmenter pour rendre moins sensible
+const SHAKE_FORCE = 22;   // accélération minimale (m/s², sans la gravité) d'un coup franc
+const SHAKE_HITS = 5;     // nombre de coups francs nécessaires…
+const SHAKE_WINDOW = 1500; // …dans cette fenêtre (ms)
+
+const Shake = {
+  on: false, hits: [], lastHit: 0, lastStrong: 0, shaken: false, timer: null, onDone: null,
+  async ask() {
+    try {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        await DeviceMotionEvent.requestPermission();
+      }
+    } catch (e) {}
+  },
+  start(onDone) {
+    this.stop();
+    this.on = true; this.hits = []; this.shaken = false; this.onDone = onDone;
+    window.addEventListener('devicemotion', this.handle);
+    this.timer = setInterval(() => {
+      if (this.shaken && performance.now() - this.lastStrong > 400) {
+        const done = this.onDone;
+        this.stop();
+        done && done();
+      }
+    }, 80);
+  },
+  stop() {
+    this.on = false;
+    window.removeEventListener('devicemotion', this.handle);
+    clearInterval(this.timer);
+  },
+  // Force du mouvement, gravité retirée
+  force(e) {
+    const a = e.acceleration;
+    if (a && a.x != null) return Math.hypot(a.x, a.y, a.z);
+    const g = e.accelerationIncludingGravity;
+    if (g && g.x != null) return Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
+    return 0;
+  },
+  handle(e) {
+    if (Shake.force(e) < SHAKE_FORCE) return;
+    const now = performance.now();
+    Shake.lastStrong = now;
+    if (now - Shake.lastHit < 110) return; // un seul coup compté par secousse
+    Shake.lastHit = now;
+    Shake.hits = Shake.hits.filter(t => now - t < SHAKE_WINDOW);
+    Shake.hits.push(now);
+    if (Shake.hits.length >= SHAKE_HITS) Shake.shaken = true;
+    Sound.rattle(); vibrate(15);
+    cupShaking(true);
+    clearTimeout(Shake.cupT);
+    Shake.cupT = setTimeout(() => cupShaking(false), 300);
+  },
+};
+
+
+// La détection n'écoute que lorsqu'un mélange est possible (chapeau fermé, lancer pas encore fait)
+const canShakeMix = () => S.screen === 'oral' && !O.open && hatIdx().length > 0 && !mixLocked() && !S.busy;
+function armShake() {
+  if (shakeOn && canShakeMix()) { if (!Shake.on) Shake.start(() => { if (canShakeMix()) oralShakeHat(); }); }
+  else Shake.stop();
+}
+
 /* ---------- Glisser un dé entre le chapeau et la table ---------- */
 let drag = null, dragEndedAt = 0;
 document.addEventListener('pointerdown', e => {
@@ -318,7 +385,7 @@ Object.assign(actions, {
     G.anim = null;
     if (s.screen === 'oralWheel' && !G.wheel.done) G.wheel = { spun: false, rot: 0, pick: null, done: false };
     S.screen = s.screen;
-    Sound.init();
+    Sound.init(); if (shakeOn) Shake.ask();
     render();
   },
   oMode(m) { OS.mode = m; saveOS(); render(); },
@@ -329,7 +396,7 @@ Object.assign(actions, {
     saveOS(); render();
   },
   oToken(t) { OS.tokenType = t; saveOS(); render(); },
-  oralGo() { Sound.init(); oralNewGame(); },
+  oralGo() { Sound.init(); if (shakeOn) Shake.ask(); oralNewGame(); },
   oralAgain() { Sound.init(); oralNewGame(); },
   oralSpin() { Sound.init(); spinWheel(); },
   oralWheelGo() { G.msg = ''; newRound(G.wheel.pick); },
@@ -343,6 +410,12 @@ Object.assign(actions, {
     Sound.init();
     O.open ? Sound.hatOpen() : Sound.hatClose();
     vibrate([40, 70, 40]);
+    render();
+  },
+  toggleShake() {
+    shakeOn = !shakeOn;
+    try { localStorage.setItem('pm-shake', shakeOn ? '1' : '0'); } catch (e) {}
+    if (shakeOn) Shake.ask(); // iPhone : l'autorisation doit être demandée lors d'un appui
     render();
   },
   oralShake() { if (mixLocked() || O.open) return; Sound.init(); fakeShake(oralShakeHat); },
@@ -400,6 +473,7 @@ document.addEventListener('input', e => {
 
 // Après chaque affichage : sauvegarde et animation des fiches
 function afterRender() {
+  armShake();
   if (G && GAME_SCREENS.includes(S.screen)) saveGame();
   if (full() && G.anim && S.screen === 'oral') {
     const a = G.anim;
@@ -413,6 +487,7 @@ function oralBar() {
   return `<div class="topbar">
     <div class="apptitle">🎩 Poker Menteur</div>
     <div class="tools">
+      <button class="icon ${shakeOn ? '' : 'off'}" data-act="toggleShake" aria-label="Secouer pour mélanger">📳</button>
       <button class="icon" data-act="mute" aria-label="Son">${S.muted ? '🔇' : '🔊'}</button>
       <button class="icon" data-act="quit" aria-label="Quitter">✕</button>
     </div>
@@ -499,7 +574,8 @@ function oralHTML() {
       </div>
       <p class="hint small">${locked ? '✓ Lancer fait : un seul par tour (chapeau ou table).'
         : O.open ? 'Un seul lancer par tour. Pour mélanger, referme d\'abord le chapeau.'
-        : 'Un seul lancer par tour : mélanger le chapeau ou lancer la table.'}</p>`;
+        : 'Un seul lancer par tour : mélanger le chapeau ou lancer la table.'}${
+        shakeOn && !locked && !O.open && h ? '<br>📳 Tu peux aussi secouer le téléphone pour mélanger.' : ''}</p>`;
 
   if (!full()) {
     return `${oralBar()}
