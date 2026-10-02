@@ -538,8 +538,21 @@ button.hatbtn:active .cup { transform: scale(.94); }
 @keyframes tblhatopen { to { transform: translate(-50%, -95%) rotate(-24deg); } }
 .tbl-hat.shaking { animation: tblhatshake .12s linear infinite; }
 @keyframes tblhatshake { 0% { transform: translate(-50%, -60%); } 25% { transform: translate(-58%, -66%) rotate(-10deg); } 50% { transform: translate(-44%, -56%) rotate(9deg); } 75% { transform: translate(-54%, -58%) rotate(-6deg); } }
-.tbl-bubble { position: absolute; transform: translate(-50%, calc(-100% - 6px)); z-index: 2; display: flex; gap: 2px; background: #fffdf6; border-radius: 10px; padding: 3px 4px; box-shadow: 0 3px 8px rgba(0,0,0,.5); animation: bubblein .35s ease-out; pointer-events: none; }
-.tbl-bubble::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: #fffdf6; transform: translateX(-50%) rotate(45deg); }
+
+/* La table occupe toute la place libre de l'écran (petite sur un iPhone SE, grande sur un Pro Max) */
+#app[data-screen="oral"] { height: 100vh; height: 100dvh; min-height: 0; }
+#app[data-screen="oral"] > * { flex-shrink: 0; }
+#app[data-screen="oral"] > .ptable { flex: 1 1 172px; height: auto; min-height: 136px; max-height: min(380px, 80vw); }
+#app[data-screen="oral"] .ptable.lobby { flex: none; }
+
+.tbl-bubble { position: absolute; left: 50%; z-index: 4; display: flex; flex-wrap: nowrap; width: max-content; gap: 2px; background: #fffdf6; border-radius: 10px; padding: 3px 4px; box-shadow: 0 3px 8px rgba(0,0,0,.5); pointer-events: none; transform: translateX(-50%); }
+.tbl-bubble.up { bottom: calc(100% + 7px); animation: bubbleup .35s ease-out; }
+.tbl-bubble.down { top: calc(100% + 7px); animation: bubbledown .35s ease-out; }
+.tbl-bubble::after { content: ''; position: absolute; left: 50%; width: 10px; height: 10px; background: #fffdf6; transform: translateX(-50%) rotate(45deg); }
+.tbl-bubble.up::after { bottom: -5px; }
+.tbl-bubble.down::after { top: -5px; }
 .tbl-bubble .die { --s: 18px; box-shadow: none; border: 1px solid rgba(0,0,0,.15); }
 .tbl-bubble .die .corner { display: none; }
-@keyframes bubblein { from { transform: translate(-50%, -60%) scale(.5); opacity: 0; } }
+@keyframes bubbleup { from { transform: translate(-50%, 10px) scale(.5); opacity: 0; } }
+@keyframes bubbledown { from { transform: translate(-50%, -10px) scale(.5); opacity: 0; } }
+.seat:has(.tbl-bubble) { z-index: 5; }

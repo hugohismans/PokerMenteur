@@ -6,7 +6,7 @@ const FX = {
   oeuf:    { emoji: '🥚', label: 'Œuf',     hit: 'splat',  color: '#f2c94c' },
   fleurs:  { emoji: '💐', label: 'Fleurs',  hit: 'sparkle', color: '#ff8fc8' },
   bisou:   { emoji: '💋', label: 'Bisou',   hit: 'hearts', color: '#ff4f7b' },
-  biere:   { emoji: '🍺', label: 'Santé !', hit: 'cheers', color: '#e3b341' },
+  biere:   { emoji: '☕', label: 'Café', hit: 'cheers', color: '#8a5a2b' },
   soulier: { emoji: '👟', label: 'Soulier', hit: 'bonk',   color: '#8a5a2b' },
 };
 
@@ -102,7 +102,7 @@ function impact(kind, toEl, x, y) {
   if (f.hit === 'splat') {
     box.innerHTML = `<i class="blob"></i>${Array.from({ length: 8 }, (_, k) => `<i class="drop" style="--a:${k * 45 + Math.random() * 20}deg;--d:${30 + Math.random() * 25}px"></i>`).join('')}`;
   } else {
-    const sym = { hearts: '❤️', sparkle: '✨', cheers: '🍻', bonk: '💫' }[f.hit] || '✨';
+    const sym = { hearts: '❤️', sparkle: '✨', cheers: '☕', bonk: '💫' }[f.hit] || '✨';
     box.innerHTML = Array.from({ length: 6 }, (_, k) => `<span style="--a:${k * 60 + Math.random() * 30}deg;--d:${34 + Math.random() * 20}px">${sym}</span>`).join('');
   }
   document.body.appendChild(box);

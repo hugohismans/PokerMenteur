@@ -71,12 +71,16 @@ function pokerTableHTML(G) {
   const arrow = d => (d === 1 ? ' ↻' : d === -1 ? ' ↺' : '');
   const phase = G.phase === 'charge' ? `Charge${arrow(G.roundDir)}` : `Décharge${arrow(G.dir)}`;
   const potName = G.phase === 'charge' ? 'Pot' : 'Milieu';
+  // La dernière annonce, dans une bulle accrochée au joueur qui l'a faite (vers le centre, sans cacher son nom)
+  const bubble = (i, y) => (i === G.claimAt && G.claimFaces && G.claimFaces.length
+    ? `<div class="tbl-bubble ${y > 50 ? 'up' : 'down'}">${sortClaim(G.claimFaces).map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</div>` : '');
   const seats = G.players.map((p, i) => {
     const { x, y } = seatPos(i, n);
     const cls = ['seat', i === G.current ? 'cur' : '', p.out ? 'out' : '', i === G.prev ? 'prev' : '', p.offline ? 'offline' : ''].join(' ');
     return `<div class="${cls}" id="seat-${i}" style="left:${x}%;top:${y}%" data-act="seatTap" data-arg="${i}">
       <span class="sname">${i === G.current ? '🎩 ' : ''}${p.offline ? '📵 ' : ''}${esc(p.name)}</span>
       <span class="stoks">${p.out ? 'sauvé ✓' : `${tokenSVG(G.tokenType, i * 7)}<b>${p.tokens}</b>`}</span>
+      ${bubble(i, y)}
     </div>`;
   }).join('');
   // Point entre une place et le centre de la table (0 = la place, 1 = le centre)
@@ -92,12 +96,6 @@ function pokerTableHTML(G) {
     const h = { x: 50 + 41 * 0.62 * Math.cos(ang), y: 50 + 38 * 0.62 * Math.sin(ang) };
     hat = `<div class="tbl-hat ${G.hatOpen ? 'open' : ''}" id="tblHat" data-x="${h.x.toFixed(1)}" data-y="${h.y.toFixed(1)}" style="left:${h.x.toFixed(1)}%;top:${h.y.toFixed(1)}%">${HAT_SVG}</div>`;
   }
-  // La dernière annonce, dans une bulle près de celui qui l'a faite
-  let bubble = '';
-  if (G.claimAt != null && G.claimAt >= 0 && G.claimFaces && G.claimFaces.length) {
-    const b = toward(G.claimAt, 0.24);
-    bubble = `<div class="tbl-bubble" style="left:${b.x.toFixed(1)}%;top:${b.y.toFixed(1)}%">${sortClaim(G.claimFaces).map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</div>`;
-  }
   return `<div class="ptable">
     <div class="oval">
       ${tableDice}
@@ -108,7 +106,6 @@ function pokerTableHTML(G) {
     </div>
     <span class="phase ${G.phase}">${phase}</span>
     ${seats}
-    ${bubble}
     ${hat}
   </div>`;
 }
@@ -164,14 +161,17 @@ function flyToken(type, fromId, toId) {
 // Pendant son tour, la table entière n'est gardée que si l'écran a la place (sinon une simple ligne).
 // On mesure après chaque affichage : assez de vide → on remet la table ; ça déborde → on revient à la ligne.
 let roomyTable = false;
+const noRoom = new Set(); // situations (hauteur d'écran + état du chapeau) où la table a déjà débordé
+const appOverflows = () => { const a = document.getElementById('app'); return a.scrollHeight > a.clientHeight + 2; };
 function fitTable() {
   const felt = document.querySelector('#app .felt'), act = document.querySelector('#app .actions');
   if (!felt || !act) return;
   const strip = document.querySelector('#app .pstrip'), table = document.querySelector('#app .ptable');
-  if (strip && !table && !roomyTable && act.getBoundingClientRect().top - felt.getBoundingClientRect().bottom > 150) {
+  const key = `${innerHeight}|${felt.className}`;
+  if (strip && !table && !roomyTable && !noRoom.has(key) && act.getBoundingClientRect().top - felt.getBoundingClientRect().bottom > 120) {
     roomyTable = true; render();
-  } else if (roomyTable && table && strip === null && document.scrollingElement.scrollHeight > innerHeight + 2) {
-    roomyTable = false; render();
+  } else if (roomyTable && table && !strip && appOverflows()) {
+    noRoom.add(key); roomyTable = false; render();
   }
 }
 
