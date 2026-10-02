@@ -94,9 +94,9 @@ const mixLocked = () => O.mixed;
 function oralShakeHat() {
   if (S.busy) return;
   const idx = hatIdx();
-  if (!idx.length || mixLocked()) return;
+  if (!idx.length || mixLocked() || O.open) return; // on mélange chapeau fermé
   idx.forEach(i => { O.dice[i] = rollDie(); });
-  O.rolled = O.open ? idx : [];
+  O.rolled = [];
   O.mixed = true;
   O.last = { where: 'hat', n: idx.length };
   Sound.land(); vibrate([30, 40, 30]);
@@ -152,12 +152,9 @@ function setFace(el, v) {
   el.innerHTML = faceInner(v);
 }
 
-// Fait trembler le chapeau quelques instants avant de mélanger.
-// S'il était ouvert, il se referme, se secoue, puis se rouvre sur les nouveaux dés.
+// Fait trembler le chapeau quelques instants avant de mélanger
 function fakeShake(then, id = 'cup', steps = 7) {
   if (S.busy) return;
-  const reopen = O.open;
-  if (reopen) { O.open = false; render(); Sound.hatClose(); }
   S.busy = true;
   let n = 0;
   const el = () => document.getElementById(id);
@@ -166,7 +163,6 @@ function fakeShake(then, id = 'cup', steps = 7) {
     Sound.rattle(); vibrate(10);
     if (++n >= steps) {
       clearInterval(t); el() && el().classList.remove('shaking'); S.busy = false;
-      if (reopen) { O.open = true; Sound.hatOpen(); }
       then();
     }
   }, 90);
@@ -347,7 +343,7 @@ Object.assign(actions, {
     vibrate([40, 70, 40]);
     render();
   },
-  oralShake() { if (mixLocked()) return; Sound.init(); fakeShake(oralShakeHat); },
+  oralShake() { if (mixLocked() || O.open) return; Sound.init(); fakeShake(oralShakeHat); },
   oralRoll() { if (S.busy || mixLocked()) return; Sound.init(); oralRollTable(); },
   oralTap(i) { i = +i; moveDie(i, O.table[i] ? 'hat' : 'table'); },
   oralPass(dir) {
@@ -488,7 +484,7 @@ function oralHTML() {
   const mine = O.open ? `<p class="mine">Avec la table : <b>${handName(evaluate(O.dice))}</b> · <small>touche ou fais glisser un dé</small></p>`
     : t ? '<p class="hint small">Touche ou fais glisser un dé de la table pour le remettre dans le chapeau.</p>' : '';
   const diceButtons = `<div class="row2">
-        <button class="btn" data-act="oralShake" ${h && !locked ? '' : 'disabled'}>🎩 Mélanger</button>
+        <button class="btn" data-act="oralShake" ${h && !locked && !O.open ? '' : 'disabled'}>🎩 Mélanger</button>
         <button class="btn" data-act="oralRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
       </div>
       ${locked ? '<p class="hint small">✓ Lancer fait : un seul par tour (chapeau ou table).</p>' : '<p class="hint small">Commence par mélanger le chapeau ou lancer la table.</p>'}`;
