@@ -436,7 +436,7 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .compose .slots { display: flex; gap: 6px; justify-content: center; min-height: 50px; }
 .compose .slots .die { --s: 48px; }
 .compose .slot { width: 48px; height: 48px; border-radius: 22%; border: 2px dashed rgba(255,255,255,.25); }
-.compose .cname { text-align: center; font-weight: 700; color: var(--gold); min-height: 1.4em; }
+.compose .cname { text-align: center; font-weight: 700; color: var(--gold); min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compose .cname.bad { color: #ff9a9a; }
 .facebar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; justify-items: center; background: rgba(0,0,0,.25); border-radius: 14px; padding: 8px 6px; }
 .facebar .die { --s: min(13vw, 52px); }

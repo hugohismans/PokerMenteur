@@ -895,7 +895,7 @@ function claimPickerHTML(x) {
     <div class="slots">${slots}</div>
     <div class="cname ${c.length && !ok ? 'bad' : ''}">${!c.length ? '📣 Qu\'annonces-tu ?'
       : ok ? `${claimName(c)} ${bluff ? '<span class="tag">bluff 😏</span>' : ''}`
-      : `${claimName(c)} : trop faible, il faut dépasser ${claimName(x.claim)}`}</div>
+      : 'Annonce trop faible'}</div>
     <div class="facebar">${[0, 1, 2, 3, 4, 5].map(v => `<button class="die f${v}" data-act="cAdd" data-arg="${v}" ${c.length >= 5 ? 'disabled' : ''}>${faceInner(v)}</button>`).join('')}</div>
     <div class="row2">
       <button class="btn ghost" data-act="cClear" ${c.length ? '' : 'disabled'}>Effacer</button>
