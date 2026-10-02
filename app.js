@@ -513,10 +513,10 @@ function setupHTML() {
       <summary>Règles du jeu</summary>
       <p>5 dés à faces <b>9, 10, Valet, Dame, Roi, As</b>. On se passe le téléphone comme le chapeau. Les annonces se font <b>à voix haute</b> et on a le droit de mentir.</p>
       <p><b>À ton tour</b>, tu prends le téléphone et tu peux :</p>
-      <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés) ;</p>
+      <p>• <b>👀 regarder dans le chapeau</b> (toi seul vois les dés), une fois ton lancer fait ;</p>
       <p>• <b>🎩 mélanger le chapeau</b> : seuls les dés du chapeau sont relancés ;</p>
       <p>• <b>🎲 lancer la table</b> : on relance les dés posés sur la table, le chapeau ne bouge pas ;</p>
-      <p>• <b>un seul lancer par tour</b> : soit on mélange le chapeau, soit on lance la table ;</p>
+      <p>• <b>un seul lancer par tour</b> : soit on mélange le chapeau, soit on lance la table, et on le fait <b>avant de regarder</b> dans le chapeau ;</p>
       <p>• <b>déplacer des dés</b> entre le chapeau et la table en les touchant ou en les faisant glisser ;</p>
       <p>• puis tu annonces plus fort que le précédent, tu refermes le chapeau et tu <b>passes</b> le téléphone.</p>
       <p>Si tu ne crois pas le joueur d'avant : <b>« Chapeau ! »</b>. On lève le chapeau, tout le monde voit les dés, et on indique <b>qui a perdu</b>.</p>

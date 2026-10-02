@@ -307,7 +307,7 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .pchip .tok-svg { width: 14px; height: 14px; }
 .pchip.cur { border-color: var(--gold); background: #3a2f10; }
 .pchip.out { opacity: .55; }
-.pchip.pot { background: transparent; }
+.pchip.potchip { background: transparent; }
 .mine small { color: var(--muted); font-weight: 400; }
 .pot { top: 40%; }
 .pot-lbl { bottom: -8px; }
@@ -334,3 +334,4 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .wheel-res b { color: var(--gold); }
 
 .ptable > .phase { top: 0; left: 0; transform: none; background: rgba(0,0,0,.3); padding: 2px 8px; border-radius: 99px; }
+#app[data-screen="oral"] .dice-row.peek { gap: 5px; padding: 6px 4px; }

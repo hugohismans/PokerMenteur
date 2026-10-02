@@ -115,6 +115,6 @@ function playersStripHTML(G) {
     <span class="pchip ${i === G.current ? 'cur' : ''} ${p.out ? 'out' : ''}" id="seat-${i}">
       ${i === G.current ? '🎩 ' : ''}${esc(p.name)} ${p.out ? '✓' : `${tokenSVG(G.tokenType, i * 7)}<b>${p.tokens}</b>`}
     </span>`).join('')}
-    <span class="pchip pot" id="pot">${G.phase === 'charge' ? 'Pot' : 'Milieu'} <b>${G.pot}</b></span>
+    <span class="pchip potchip" id="pot">${G.phase === 'charge' ? 'Pot' : 'Milieu'} <b>${G.pot}</b></span>
   </div>`;
 }
