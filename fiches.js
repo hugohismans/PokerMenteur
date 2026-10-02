@@ -68,8 +68,9 @@ function seatPos(i, n) {
 
 function pokerTableHTML(G) {
   const n = G.players.length;
-  const phase = G.phase === 'charge' ? 'Charge'
-    : `Décharge ${G.dir === 1 ? '↻' : '↺'}`;
+  const arrow = d => (d === 1 ? ' ↻' : d === -1 ? ' ↺' : '');
+  const phase = G.phase === 'charge' ? `Charge${arrow(G.roundDir)}` : `Décharge${arrow(G.dir)}`;
+  const potName = G.phase === 'charge' ? 'Pot' : 'Milieu';
   const seats = G.players.map((p, i) => {
     const { x, y } = seatPos(i, n);
     const cls = ['seat', i === G.current ? 'cur' : '', p.out ? 'out' : '', i === G.prev ? 'prev' : ''].join(' ');
@@ -82,10 +83,10 @@ function pokerTableHTML(G) {
     <div class="oval">
       <div class="pot" id="pot">
         ${G.pot ? pileHTML(G.tokenType, G.pot, 20, 3) : ''}
-        <span class="pot-lbl">${G.pot ? `Pot : ${G.pot}` : 'Pot vide'}</span>
+        <span class="pot-lbl">${G.pot ? `${potName} : ${G.pot}` : `${potName} vide`}</span>
       </div>
-      <span class="phase ${G.phase}">${phase}</span>
     </div>
+    <span class="phase ${G.phase}">${phase}</span>
     ${seats}
   </div>`;
 }
@@ -114,6 +115,6 @@ function playersStripHTML(G) {
     <span class="pchip ${i === G.current ? 'cur' : ''} ${p.out ? 'out' : ''}" id="seat-${i}">
       ${i === G.current ? '🎩 ' : ''}${esc(p.name)} ${p.out ? '✓' : `${tokenSVG(G.tokenType, i * 7)}<b>${p.tokens}</b>`}
     </span>`).join('')}
-    <span class="pchip pot" id="pot">Pot <b>${G.pot}</b></span>
+    <span class="pchip pot" id="pot">${G.phase === 'charge' ? 'Pot' : 'Milieu'} <b>${G.pot}</b></span>
   </div>`;
 }
