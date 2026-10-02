@@ -34,6 +34,7 @@ if (config) {
       // Décalage avec l'horloge du serveur, pour un compte à rebours identique chez tous
       onValue(ref(db, '.info/serverTimeOffset'), s => { ON.offset = s.val() || 0; });
       watchPublicRooms();
+      sweepStaleRooms();
       autoJoinFromLink();
       if (S.screen === 'online') render();
     });
@@ -93,6 +94,36 @@ function roomListHTML() {
   }).join('');
 }
 
+/* ---------- Effacer un salon (et le nettoyage des salons abandonnés) ---------- */
+const STALE_MS = 2 * 3600 * 1000; // un salon sans signe de vie depuis 2 h est effacé
+async function deleteRoom(id, key) {
+  if (!key) { try { key = (await get(ref(db, `rooms/${id}/meta/key`))).val(); } catch (e) {} }
+  await Promise.all([
+    remove(ref(db, `rooms/${id}`)), remove(ref(db, `publicRooms/${id}`)), remove(ref(db, `activity/${id}`)),
+    key ? remove(ref(db, `roomKeys/${key}`)) : null,
+  ].map(p => p && p.catch(() => {})));
+}
+
+// Chaque joueur présent signale régulièrement que le salon est actif
+function heartbeat(id) {
+  set(ref(db, `activity/${id}`), { t: serverTimestamp() }).catch(() => {});
+}
+
+// Le premier qui ouvre « Jouer en ligne » efface les salons abandonnés
+async function sweepStaleRooms() {
+  if (ON.swept) return;
+  ON.swept = true;
+  try {
+    const now = serverNow();
+    const act = (await get(ref(db, 'activity'))).val() || {};
+    const pub = (await get(ref(db, 'publicRooms'))).val() || {};
+    const stale = new Set(Object.entries(act).filter(([, a]) => !a || !a.t || now - a.t > STALE_MS).map(([id]) => id));
+    // Anciennes entrées publiques sans signe de vie
+    Object.entries(pub).forEach(([id, r]) => { if (!act[id] && now - (r.createdAt || 0) > STALE_MS) stale.add(id); });
+    for (const id of [...stale].slice(0, 30)) await deleteRoom(id);
+  } catch (e) {}
+}
+
 /* ---------- Créer / rejoindre / quitter ---------- */
 function needPseudo() {
   if (ON.pseudo.trim()) return false;
@@ -111,6 +142,7 @@ async function createRoom(isPublic) {
     players: { [me]: { name: ON.pseudo, joinedAt: serverTimestamp(), online: true } },
   });
   await set(ref(db, `roomKeys/${key}`), id);
+  heartbeat(id);
   if (isPublic) await set(ref(db, `publicRooms/${id}`), { name, hostName: ON.pseudo, count: 1, status: 'lobby', createdAt: serverTimestamp() });
   enterRoom(id);
 }
@@ -175,7 +207,9 @@ function enterRoom(id, role = 'player') {
     const el = uid => document.querySelector(`[data-uid="${uid}"]`);
     playFx(v.kind, el(v.from), el(v.to));
   });
-  ON.unsub = [presence, roomL, chatL, fxL];
+  heartbeat(id);
+  const beat = setInterval(() => heartbeat(id), 4 * 60 * 1000);
+  ON.unsub = [presence, roomL, chatL, fxL, () => clearInterval(beat)];
   S.screen = 'onlineRoom';
   render();
 }
@@ -198,12 +232,16 @@ async function leaveRoom() {
       await remove(ref(db, `rooms/${id}/players/${me}`));
       const left = Object.keys(room.players || {}).filter(u => u !== me);
       if (!left.length) {
-        await Promise.all([remove(ref(db, `rooms/${id}`)), remove(ref(db, `publicRooms/${id}`)), remove(ref(db, `roomKeys/${room.meta.key}`))]);
+        await deleteRoom(id, room.meta.key);
       } else if (room.meta.host === me) {
         await update(ref(db, `rooms/${id}/meta`), { host: left[0] });
       }
     } else {
-      await set(ref(db, `rooms/${id}/players/${me}/online`), false);
+      // Partie en cours : si plus personne n'est connecté, le salon disparaît
+      const others = Object.entries(room.players || {}).filter(([u, p]) => u !== me && p.online !== false).length
+        + Object.keys(room.spectators || {}).filter(u => u !== me).length;
+      if (!others) await deleteRoom(id, room.meta.key);
+      else await set(ref(db, `rooms/${id}/players/${me}/online`), false);
     }
   }
   S.screen = 'online';
@@ -222,9 +260,15 @@ function autoJoinFromLink() {
 /* ---------- Réception de l'état du salon ---------- */
 function onRoom(room) {
   if (!room) {
-    if (S.screen === 'onlineRoom') { ON.roomId = null; ON.joinError = 'Le salon a été fermé.'; leaveListeners(); S.screen = 'online'; render(); }
+    if (S.screen === 'onlineRoom' && ON.roomId) {
+      ON.roomId = null; ON.chatOpen = false; drawChat();
+      ON.joinError = ON.closedBy ? `${ON.closedBy} a fermé le salon.` : 'Le salon a été fermé.';
+      try { localStorage.removeItem('pm-online-room'); } catch (e) {}
+      leaveListeners(); S.screen = 'online'; render();
+    }
     return;
   }
+  ON.closedBy = room.meta && room.meta.closedBy;
   ON.room = room;
   if (room.game) normalize(room.game);
   takeOverHostIfNeeded(room);
@@ -448,6 +492,29 @@ Object.assign(actions, {
   onJoin(id) { Sound.init(); joinRoom(id); },
   onJoinKey() { Sound.init(); joinByKey(document.getElementById('joinKey')?.value); },
   onResume() { Sound.init(); const id = ON.resumeId; ON.resumeId = null; if (id) joinRoom(id); },
+  // Le ✕ du maître du salon : quitter, ou fermer le salon pour tout le monde
+  onExit() {
+    if (!isHost()) return actions.onLeave();
+    const playing = ON.room && ON.room.meta.status === 'playing';
+    openSheet(`<div class="fx-head">${playing ? 'Partie en cours' : 'Salon'} : que veux-tu faire ?</div>
+      <button class="btn danger" data-act="onCloseRoom">🗑 ${playing ? 'Terminer la partie et fermer' : 'Fermer'} le salon pour tout le monde</button>
+      <button class="btn" data-act="onLeaveSheet">🚪 Quitter seulement${playing ? ' (je pourrai revenir)' : ''}</button>
+      <button class="btn ghost sm" data-act="sheetClose">Annuler</button>`);
+  },
+  onLeaveSheet() { closeSheet(); leaveRoom(); },
+  async onCloseRoom() {
+    closeSheet();
+    if (!isHost() || !ON.roomId) return;
+    if (!confirm('Fermer le salon ? La partie s\'arrête pour tout le monde et le salon est effacé.')) return;
+    const id = ON.roomId, key = ON.room.meta.key;
+    await update(roomRef('meta'), { closedBy: ON.pseudo }).catch(() => {});
+    leaveListeners();
+    ON.roomId = null; ON.room = null; ON.chatOpen = false; drawChat();
+    try { localStorage.removeItem('pm-online-room'); } catch (e) {}
+    setTimeout(() => deleteRoom(id, key), 300); // laisse aux autres le temps de voir qui a fermé
+    ON.joinError = 'Salon fermé et effacé.';
+    S.screen = 'online'; render();
+  },
   onLeave() {
     const playing = ON.room && ON.room.meta.status === 'playing';
     if (playing && !confirm('Quitter la partie ? Tu pourras revenir à ta place depuis « Jouer en ligne ».')) return;
@@ -703,7 +770,7 @@ function onlineTopbar(title) {
       ${ON.roomId ? `<button class="icon chatbtn" data-act="toggleChat" aria-label="Chat">💬<span id="chatBadge" class="badge-n">${ON.unread || ''}</span></button>` : ''}
       <button class="icon ${shakeOn ? '' : 'off'}" data-act="toggleShake" aria-label="Secouer pour mélanger">📳</button>
       <button class="icon" data-act="mute" aria-label="Son">${S.muted ? '🔇' : '🔊'}</button>
-      <button class="icon" data-act="${ON.roomId ? 'onLeave' : 'menu'}" aria-label="Quitter">✕</button>
+      <button class="icon" data-act="${ON.roomId ? 'onExit' : 'menu'}" aria-label="Quitter">✕</button>
     </div>
   </div>`;
 }
@@ -781,7 +848,8 @@ function lobbyHTML() {
     </section>
     ${host ? `<section class="card"><h2>Fiches</h2><div class="tokens">${Object.keys(TOKEN_TYPES).map(t => `
         <button class="style-opt ${m.tokenType === t ? 'on' : ''}" data-act="onToken" data-arg="${t}"><span class="tok-prev">${pileHTML(t, 5, 5, 1)}</span><b>${TOKEN_TYPES[t]}</b></button>`).join('')}</div></section>
-      <button class="btn primary big" data-act="onStart" ${n < 2 ? 'disabled' : ''}>🎲 Lancer la partie</button>` : ''}`;
+      <button class="btn primary big" data-act="onStart" ${n < 2 ? 'disabled' : ''}>🎲 Lancer la partie</button>
+      <button class="btn ghost" data-act="onCloseRoom">🗑 Supprimer le salon</button>` : ''}`;
 }
 
 // Petits dés pour afficher une annonce
@@ -935,7 +1003,7 @@ function overHTML(x) {
       <div class="trophy">🏁</div>
       <h2>${nameOf(x.loser)} a perdu la partie</h2>
       <p class="gmsg">${x.msg}</p>
-      ${isHost() ? '<button class="btn primary big" data-act="onReplay">🔄 Rejouer (retour au salon)</button>' : '<p class="hint">Le maître du salon peut relancer une partie.</p>'}
+      ${isHost() ? '<button class="btn primary big" data-act="onReplay">🔄 Rejouer (retour au salon)</button><button class="btn ghost" data-act="onCloseRoom">🗑 Fermer le salon</button>' : '<p class="hint">Le maître du salon peut relancer une partie.</p>'}
       <button class="btn ghost" data-act="onLeave">Quitter le salon</button>
     </div>`;
 }
@@ -1018,3 +1086,4 @@ window.ON_DEBUG = () => {
     summary: `${x.phase} pot=${x.pot} ` + x.order.map(u => `${x.names[u]}:${x.tokens[u] || 0}${x.out[u] ? '✓' : ''}`).join(' '),
   };
 };
+window.ON_ROOM_ID = () => ON.roomId;

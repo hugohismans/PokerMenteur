@@ -442,3 +442,4 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
 .facebar .die { --s: min(13vw, 52px); }
 .facebar .die:active:not(:disabled) { transform: scale(.9); }
 .facebar .die:disabled { opacity: .35; }
+.fx-card.sheet { gap: 10px; }

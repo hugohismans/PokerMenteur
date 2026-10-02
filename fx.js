@@ -114,3 +114,12 @@ actions.seatTap = i => {
   if (!G || !G.players || !G.players[+i]) return;
   openFxMenu(G.players[+i].name, kind => playFx(kind, null, document.getElementById(`seat-${i}`)));
 };
+
+// Petit menu générique en bas de l'écran (même présentation que les projectiles)
+function openSheet(html) {
+  fxPick = null;
+  fxMenu.innerHTML = `<div class="fx-card sheet">${html}</div>`;
+  fxMenu.classList.add('open');
+}
+const closeSheet = closeFxMenu;
+actions.sheetClose = closeFxMenu;

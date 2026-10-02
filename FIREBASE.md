@@ -23,6 +23,9 @@ Environ 5 minutes, à faire une seule fois. Tout est gratuit (offre « Spark »)
 3. Mode : **verrouillé** (on remplace les règles juste après).
 4. Onglet **Règles** : colle le contenu du fichier `database.rules.json` du projet, puis **Publier**.
 
+## Mise à jour des règles
+Quand le fichier `database.rules.json` change, recolle-le dans **Realtime Database → Règles** puis **Publier**.
+
 ## 5. Vérifier la configuration
 La configuration copiée doit contenir une ligne `databaseURL` (qui apparaît après l'étape 4 ;
 si elle manque, recopie la configuration depuis **Paramètres du projet → Vos applications**).

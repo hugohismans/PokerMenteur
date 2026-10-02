@@ -4,6 +4,10 @@
       ".read": "auth != null",
       "$room": { ".write": "auth != null" }
     },
+    "activity": {
+      ".read": "auth != null",
+      "$room": { ".write": "auth != null" }
+    },
     "roomKeys": {
       "$key": {
         ".read": "auth != null",
