@@ -7,7 +7,7 @@
 const O = {
   dice: [0, 0, 0, 0, 0], table: [false, false, false, false, false],
   open: false, rolled: [], armed: false, armT: null,
-  mixed: false, // lancer du tour déjà fait (chapeau OU table). Il faut l'avoir fait pour regarder dans le chapeau.
+  mixed: false, // lancer du tour déjà fait (chapeau OU table)
   last: null,   // dernier lancer : { where: 'hat' | 'table', n }
 };
 
@@ -87,7 +87,7 @@ const dirName = d => (d === 1 ? 'sens des aiguilles d\'une montre ↻' : 'sens i
 /* ---------- Dés ---------- */
 const hatIdx = () => O.dice.map((_, i) => i).filter(i => !O.table[i]);
 const tableIdx = () => O.dice.map((_, i) => i).filter(i => O.table[i]);
-// Un seul lancer par tour : mélanger le chapeau OU lancer la table, et toujours AVANT de regarder.
+// Un seul lancer par tour : mélanger le chapeau (fermé) OU lancer la table. On peut regarder quand on veut.
 // Le tour se termine quand on passe le téléphone : on peut rouvrir le chapeau autant qu'on veut avant.
 const mixLocked = () => O.mixed;
 
@@ -335,7 +335,7 @@ Object.assign(actions, {
   oralSimpleRound() { newRound(null); },
 
   oralPeek() {
-    if (S.busy || (!O.open && !O.mixed)) return; // il faut avoir lancé avant de regarder
+    if (S.busy) return;
     O.open = !O.open;
     O.rolled = [];
     Sound.init();
@@ -361,7 +361,7 @@ Object.assign(actions, {
     Sound.click(0.5); vibrate(30);
     render();
   },
-  // Mode simple : on passe le téléphone, le joueur suivant devra lancer avant de regarder
+  // Mode simple : on passe le téléphone, ce qui débloque le lancer pour le joueur suivant
   oralPassSimple() {
     if (O.open || S.busy) return;
     O.mixed = false; O.armed = false; O.rolled = [];
@@ -464,10 +464,8 @@ function passButtons() {
     <div class="row2">${btn(1, cw, '📱 ↻ %')}${btn(-1, ccw, '% ↺ 📱')}</div>`;
 }
 
-// Regarder n'est possible qu'après le lancer du tour
 function peekButton(label) {
   if (O.open) return '<button class="btn ghost" data-act="oralPeek">🙈 Refermer le chapeau</button>';
-  if (!O.mixed) return '<button class="btn" data-act="oralPeek" disabled>👀 Lance d\'abord pour regarder</button>';
   return `<button class="btn" data-act="oralPeek">${label}</button>`;
 }
 
@@ -487,7 +485,9 @@ function oralHTML() {
         <button class="btn" data-act="oralShake" ${h && !locked && !O.open ? '' : 'disabled'}>🎩 Mélanger</button>
         <button class="btn" data-act="oralRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
       </div>
-      ${locked ? '<p class="hint small">✓ Lancer fait : un seul par tour (chapeau ou table).</p>' : '<p class="hint small">Commence par mélanger le chapeau ou lancer la table.</p>'}`;
+      <p class="hint small">${locked ? '✓ Lancer fait : un seul par tour (chapeau ou table).'
+        : O.open ? 'Un seul lancer par tour. Pour mélanger, referme d\'abord le chapeau.'
+        : 'Un seul lancer par tour : mélanger le chapeau ou lancer la table.'}</p>`;
 
   if (!full()) {
     return `${oralBar()}
