@@ -9,8 +9,8 @@ Jeu de poker menteur aux dés (9, 10, Valet, Dame, Roi, As) pour mobile, sous fo
 
 ## Jouer sur le téléphone
 
-1. Activer GitHub Pages : *Settings → Pages → Source : GitHub Actions*.
-2. Chaque push sur `main` publie le jeu sur `https://<utilisateur>.github.io/pokermenteur/`.
+1. Activer GitHub Pages : *Settings → Pages → Source : Deploy from a branch → `main` / `(root)`*.
+2. Chaque push sur `main` publie le jeu sur `https://hugohismans.github.io/PokerMenteur/`.
 3. Ouvrir ce lien sur le téléphone, puis :
    - **Android (Chrome)** : menu ⋮ → *Ajouter à l'écran d'accueil* / *Installer l'application*.
    - **iPhone (Safari)** : bouton Partager → *Sur l'écran d'accueil*.
@@ -23,5 +23,5 @@ Le jeu fonctionne ensuite hors-ligne. Sur iPhone, autorise l'accès aux « mouve
 npx http-server -p 8080
 ```
 
-Fichiers : `index.html`, `style.css`, `game.js` (règles + ordinateur), `app.js` (interface, secousse, sons), `sw.js` (hors-ligne).
+Fichiers : `index.html`, `style.css`, `game.js` (règles + ordinateur), `app.js` (interface, secousse, sons), `oral.js` (mode à voix haute avec le chapeau), `sw.js` (hors-ligne).
 Après une modification, incrémenter `VERSION` dans `sw.js`.
