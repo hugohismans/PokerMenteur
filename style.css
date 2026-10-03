@@ -17,7 +17,7 @@ html, body { margin: 0; height: 100%; overflow-x: hidden; }
 body {
   background: radial-gradient(ellipse at 50% 30%, #146b48 0%, var(--felt-dark) 75%) fixed, var(--felt-dark);
   color: var(--ink);
-  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 1rem/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   overscroll-behavior: none;
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none;
@@ -490,10 +490,10 @@ button.hatbtn:active .cup { transform: scale(.94); }
 #app[data-screen="oral"] .felt.side .cup { width: 74px; }
 #app[data-screen="oral"] .felt.side .dice-row { justify-content: flex-start; min-height: 0; gap: 5px; }
 #app[data-screen="oral"] .felt.side .dice-row .die { --s: min(11vw, 46px); }
-#app[data-screen="oral"] .felt.side .zl { text-align: left; font-size: .65rem; margin-bottom: 4px; }
+#app[data-screen="oral"] .felt.side .zl { text-align: left; font-size: .7rem; margin-bottom: 4px; }
 #app[data-screen="oral"] .felt.side .empty { font-size: .8rem; }
 #app[data-screen="oral"] .hat-hint { font-size: .7rem; padding: 2px 8px; }
-#app[data-screen="oral"] .zl { font-size: .66rem; }
+#app[data-screen="oral"] .zl { font-size: .7rem; }
 #app[data-screen="oral"] .hint.small { margin: 0; font-size: .74rem; }
 #app[data-screen="oral"] .row2.compact .btn { padding: 9px 6px; font-size: .9rem; white-space: nowrap; }
 #app[data-screen="oral"] .compose { gap: 5px; padding: 8px 8px 10px; }
@@ -598,3 +598,31 @@ button.hatbtn:active .cup { transform: scale(.94); }
 /* Le mélange passe avant toutes les autres animations du chapeau (posé, soulevé…) */
 #cup.shaking { animation: shake .12s linear infinite; }
 #tblHat.shaking { animation: tblhatshake .12s linear infinite; }
+
+/* Taille du texte choisie dans les options */
+html[data-text="1"] { font-size: 112.5%; }
+html[data-text="2"] { font-size: 125%; }
+.textsize { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 6px 4px 10px; font-weight: 600; }
+.seg { display: flex; background: rgba(0,0,0,.3); border-radius: 99px; padding: 3px; gap: 2px; }
+.seg button { background: none; color: var(--ink); border-radius: 99px; padding: 6px 10px; font-weight: 700; }
+.seg button.on { background: var(--gold); color: #2b1a05; }
+
+/* Texte agrandi : on raccourcit les libellés et rien ne déborde sur les côtés */
+html[data-text="1"] .lng, html[data-text="2"] .lng { display: none; }
+@media (max-width: 360px) { .lng { display: none; } }
+#app[data-screen="oral"] .row2 > .btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-text="2"] #app[data-screen="oral"] .facebar .die { --s: min(11vw, 40px); }
+
+/* « À toi de jouer ! » en grand, puis l'annonce file vers son bandeau */
+.turn-intro { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.55); animation: tifade .25s ease-out; }
+.turn-intro.leaving { background: transparent; transition: background .5s; pointer-events: none; }
+.ti-card { text-align: center; background: radial-gradient(ellipse at 50% 30%, #1d8358, #0d4c33 80%); border: 3px solid var(--gold); border-radius: 22px; padding: 18px 22px 20px; box-shadow: 0 14px 40px rgba(0,0,0,.6); max-width: 92vw; animation: tipop .45s cubic-bezier(.3,1.5,.5,1); }
+.ti-title { font-family: Georgia, serif; font-size: 1.9rem; font-weight: 700; color: var(--gold); }
+.ti-sub { margin-top: 8px; font-size: 1.1rem; color: var(--ink); }
+.ti-claim { margin-top: 2px; font-family: Georgia, serif; font-size: 1.7rem; font-weight: 700; color: #fff; }
+.ti-dice { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+.ti-dice .die { --s: min(15vw, 56px); }
+@keyframes tifade { from { background: transparent; } }
+@keyframes tipop { from { transform: scale(.4); opacity: 0; } }
+.banner.landed { animation: landed .6s ease-out; }
+@keyframes landed { 0% { box-shadow: 0 0 0 0 rgba(227,179,65,.9); transform: scale(1.06); } 100% { box-shadow: 0 0 0 14px rgba(227,179,65,0); transform: none; } }

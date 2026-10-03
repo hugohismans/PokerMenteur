@@ -523,7 +523,9 @@ function oralFelt(reveal) {
   const open = reveal || O.open;
   const who = full() ? `${esc(G.players[G.current].name)} seul les voit` : 'toi seul les vois';
   // Le chapeau est le bouton : on le touche pour regarder, « Refermer ✕ » pour le reposer
-  const tap = !reveal && O.hatTap !== false, canOpen = O.open || O.last != null;
+  // (hatTap / othersPeek ne concernent que le jeu en ligne : ils ne doivent pas bloquer le chapeau en local)
+  const online = S.screen === 'onlineRoom', othersPeek = online ? O.othersPeek : null;
+  const tap = !reveal && (!online || O.hatTap !== false), canOpen = O.open || O.last != null;
   const anim = O.hatAnim; O.hatAnim = null; // animation jouée une seule fois
   const hatZone = open
     ? `<div class="peekzone ${anim === 'lift' ? 'lifting' : ''}">
@@ -531,12 +533,12 @@ function oralFelt(reveal) {
         <div class="dice-row under ${reveal ? '' : 'peek'}" id="cup">${h.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">chapeau vide</span>'}</div>
       </div>`
     : `<${tap && canOpen ? 'button data-act="oralPeek"' : 'div'} class="cup-wrap hatbtn" aria-label="Regarder dans le chapeau">
-        <div class="cup ${h.length ? 'ready' : ''} ${anim === 'drop' ? 'dropping' : ''} ${O.othersPeek ? 'peeking' : ''}" id="cup">${HAT_SVG}<span class="cnt">${h.length}</span></div>
-        ${O.othersPeek ? `<span class="hat-hint">👀 ${esc(O.othersPeek)} regarde</span>`
+        <div class="cup ${h.length ? 'ready' : ''} ${anim === 'drop' ? 'dropping' : ''} ${othersPeek ? 'peeking' : ''}" id="cup">${HAT_SVG}<span class="cnt">${h.length}</span></div>
+        ${othersPeek ? `<span class="hat-hint">👀 ${esc(othersPeek)} regarde</span>`
           : tap ? `<span class="hat-hint ${canOpen ? '' : 'off'}">${canOpen ? '👆 Touche pour regarder' : 'Mélange d\'abord pour regarder'}</span>` : ''}
       </${tap && canOpen ? 'button' : 'div'}>`;
   return `<div class="felt ${open ? '' : 'side'}">
-    <div class="zone" data-zone="table"><div class="zl">Sur la table · visibles par tous</div>
+    <div class="zone" data-zone="table"><div class="zl">Sur la table<span class="lng"> · visibles par tous</span></div>
       <div class="dice-row" id="tableDice">${t.map(i => oralDie(i, !reveal && !O.mixed)).join('') || '<span class="empty">aucun dé</span>'}</div></div>
     <div class="zone" data-zone="hat"><div class="zl">${reveal ? 'Dans le chapeau · levé !' : open ? `Dans le chapeau<span class="who"> · ${who}</span>` : 'Dans le chapeau'}</div>
       ${hatZone}
@@ -584,7 +586,7 @@ function oralHTML() {
     : t && !locked ? '<p class="hint small">Touche ou fais glisser un dé de la table pour le remettre dans le chapeau.</p>' : '';
   const diceButtons = `<div class="row2">
         <button class="btn" data-act="oralShake" ${h && !locked && !O.open ? '' : 'disabled'}>🎩 Mélanger</button>
-        <button class="btn" data-act="oralRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
+        <button class="btn" data-act="oralRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer<span class="lng"> la table</span>${t ? ` (${t})` : ''}</button>
       </div>
       <p class="hint small">${locked ? '✓ Lancer fait : un seul par tour (chapeau ou table).'
         : O.open ? 'Un seul lancer par tour. Pour mélanger, referme d\'abord le chapeau.'

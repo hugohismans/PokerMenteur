@@ -128,6 +128,13 @@ window.addEventListener('pageshow', e => { if (e.persisted) soundStale = true; }
   else if (Sound.ctx.state !== 'running') Sound.init();
 }, { capture: true, passive: true }));
 
+// Taille du texte (pour mieux lire sur un petit écran) : agrandit tout le texte de l'appli
+const TEXT_SIZES = ['Normal', 'Grand', 'Très grand'];
+let textSize = 0;
+try { textSize = Math.min(2, +localStorage.getItem('pm-text') || 0); } catch (e) {}
+const applyTextSize = () => { document.documentElement.dataset.text = textSize; };
+applyTextSize();
+
 /* ---------- État ---------- */
 function loadSetup() {
   try { return JSON.parse(localStorage.getItem('pm-setup')); } catch (e) { return null; }
@@ -299,6 +306,11 @@ function botTurn(i) {
 
 /* ---------- Actions ---------- */
 const actions = {
+  setTextSize(i) {
+    textSize = +i;
+    try { localStorage.setItem('pm-text', textSize); } catch (e) {}
+    applyTextSize(); render();
+  },
   addPlayer(bot) {
     const P = S.setup.players;
     if (P.length >= 8) return;
@@ -526,6 +538,9 @@ function setupHTML() {
     </section>
     <section class="card">
       <h2>Options</h2>
+      <div class="textsize"><span>🔠 Taille du texte</span>
+        <div class="seg">${TEXT_SIZES.map((t, i) => `<button class="${textSize === i ? 'on' : ''}" data-act="setTextSize" data-arg="${i}" style="font-size:${[0.9, 1.05, 1.2][i]}rem">${t}</button>`).join('')}</div>
+      </div>
       <button class="toggle ${shakeOn ? 'on' : ''}" data-act="toggleShake">
         <span>📳 Secouer le téléphone pour mélanger le chapeau</span><i></i>
       </button>

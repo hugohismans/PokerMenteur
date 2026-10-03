@@ -47,7 +47,7 @@ const MAX_PLAYERS = 8;
 const KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ON = {
   pseudo: '', roomId: null, room: null, unsub: [], publicRooms: [],
-  lastEv: null, wasMyTurn: false, compose: [],
+  lastEv: null, wasMyTurn: null, compose: [],
   chat: [], chatOpen: false, unread: 0, pendingRender: false, joinError: '', anim: null,
   wheelSeen: null, wheelDone: false, offset: 0, role: 'player',
 };
@@ -180,7 +180,7 @@ async function joinByKey(raw) {
 
 function enterRoom(id, role = 'player') {
   leaveListeners();
-  ON.roomId = id; ON.room = null; ON.chat = []; ON.unread = 0; ON.lastEv = null; ON.wasMyTurn = false; ON.role = role;
+  ON.roomId = id; ON.room = null; ON.chat = []; ON.unread = 0; ON.lastEv = null; ON.wasMyTurn = null; ON.role = role;
   try { localStorage.setItem('pm-online-room', id); } catch (e) {}
   // Présence : hors ligne automatiquement si l'appli se ferme ou perd le réseau
   const presence = onValue(ref(db, '.info/connected'), s => {
@@ -284,7 +284,11 @@ function onRoom(room) {
   handleEvent();
   // Mon tour arrive : petit signal
   const mine = room.game && room.game.stage === 'play' && room.game.cur === me;
-  if (mine && !ON.wasMyTurn) { vibrate([60, 60, 60]); Sound.tone(880, 0.15); Sound.tone(1320, 0.2, 0.12); ON.compose = []; }
+  if (mine && !ON.wasMyTurn) {
+    vibrate([60, 60, 60]); Sound.tone(880, 0.15); Sound.tone(1320, 0.2, 0.12); ON.compose = [];
+    // Grande annonce « À toi de jouer » (pas au tout premier affichage, ni si on revient dans un tour déjà commencé)
+    if (ON.wasMyTurn === false && !room.game.peeked && !room.game.mixed) ON.turnIntro = { claim: room.game.claim, by: room.game.claimer ? room.game.names[room.game.claimer] : '' };
+  }
   ON.wasMyTurn = mine;
   if (S.screen !== 'onlineRoom') return;
   // Un message du chat ou une tomate ne changent rien à l'écran : on ne redessine pas
@@ -910,6 +914,43 @@ function claimPickerHTML(x) {
   </div>`;
 }
 
+// « À toi de jouer ! » : l'annonce à battre s'affiche en grand, puis file se ranger à sa place habituelle
+function showTurnIntro({ claim, by }) {
+  document.querySelectorAll('.turn-intro').forEach(e => e.remove());
+  const box = document.createElement('div');
+  box.className = 'turn-intro';
+  box.innerHTML = `<div class="ti-card">
+    <div class="ti-title">🎩 À toi de jouer !</div>
+    ${claim ? `<div class="ti-sub">${esc(by)} annonce</div>
+      <div class="ti-claim">${claimName(claim)}</div>
+      <div class="ti-dice">${sortClaim(claim).map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</div>`
+    : '<div class="ti-sub">Nouvelle manche : mélange le chapeau</div>'}
+  </div>`;
+  document.body.appendChild(box);
+  const card = box.firstElementChild;
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    const target = claim && document.querySelector('#app .banner.compact');
+    box.classList.add('leaving');
+    if (target && card.animate) {
+      // L'annonce rétrécit et glisse jusqu'au bandeau d'annonce
+      const a = card.getBoundingClientRect(), b = target.getBoundingClientRect();
+      const k = Math.min(b.width / a.width, b.height / a.height);
+      const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+      card.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(${k})`, opacity: 0.2 }],
+        { duration: 650, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' })
+        .onfinish = () => { box.remove(); target.classList.remove('landed'); void target.offsetWidth; target.classList.add('landed'); };
+    } else {
+      card.animate ? card.animate([{ opacity: 1 }, { opacity: 0, transform: 'scale(.9)' }], { duration: 300, fill: 'forwards' }).onfinish = () => box.remove() : box.remove();
+    }
+  };
+  const timer = setTimeout(finish, claim ? 2200 : 1500);
+  box.addEventListener('pointerdown', finish); // un toucher passe l'animation
+}
+
 // Dernier lancer en petite étiquette (pour gagner de la place)
 function lastRollChip(x) {
   const L = x.last;
@@ -935,7 +976,7 @@ function playHTML(x) {
     const t = tableDiceIdx(x).length, h = hatDice(x).length, locked = x.mixed;
     const dice = `<div class="row2 compact">
         <button class="btn" data-act="onShake" ${h && !locked && !x.open ? '' : 'disabled'}>🎩 Mélanger</button>
-        <button class="btn" data-act="onRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer la table${t ? ` (${t})` : ''}</button>
+        <button class="btn" data-act="onRoll" ${t && !locked ? '' : 'disabled'}>🎲 Lancer<span class="lng"> la table</span>${t ? ` (${t})` : ''}</button>
       </div>
       <p class="hint small">${locked ? '✓ Lancer fait (un seul par tour)' : x.open && h ? 'Referme le chapeau pour mélanger' : x.last == null ? 'Début de manche : mélange d\'abord' : 'Un seul lancer : chapeau ou table'}</p>`;
     let pass = '';
@@ -1061,6 +1102,7 @@ window.onlineRoomHTML = () => {
 // Après l'affichage : dés qui roulent, fiche qui vole, secousse
 window.onlineAfterRender = () => {
   if (S.screen !== 'onlineRoom') return;
+  if (ON.turnIntro) { const t = ON.turnIntro; ON.turnIntro = null; showTurnIntro(t); }
   const gx = g();
   if (gx && ON.room.meta.status !== 'lobby') gx.order.forEach((u, i) => { const s = document.getElementById(`seat-${i}`); if (s) s.dataset.uid = u; });
   window.onlineArmShake();
