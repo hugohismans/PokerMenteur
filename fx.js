@@ -34,6 +34,18 @@ const FxSound = {
   },
 };
 
+// iPhone : après le clavier (chat) ou un petit défilement, une fenêtre posée par-dessus l'écran peut ne
+// plus réagir au toucher tant qu'on n'a pas fait glisser l'écran. On remet la page en place nous-mêmes.
+function resyncViewport() {
+  const y = window.scrollY;
+  window.scrollTo(0, y + 1); window.scrollTo(0, y);
+  if (document.body.scrollTop) { const b = document.body.scrollTop; document.body.scrollTop = b + 1; document.body.scrollTop = b; }
+}
+document.addEventListener('focusout', e => {
+  if (e.target.matches && e.target.matches('input, textarea')) setTimeout(() => { window.scrollTo(0, 0); resyncViewport(); }, 60);
+});
+if (window.visualViewport) visualViewport.addEventListener('resize', () => setTimeout(resyncViewport, 60));
+
 // Petit menu « Lancer sur … »
 const fxMenu = document.createElement('div');
 fxMenu.id = 'fxMenu';
@@ -49,9 +61,28 @@ function openFxMenu(name, onPick) {
     <button class="btn ghost sm" data-act="fxClose">Annuler</button>
   </div>`;
   fxMenu.classList.add('open');
+  resyncViewport();
 }
 function closeFxMenu() { fxMenu.classList.remove('open'); fxPick = null; }
 fxMenu.addEventListener('click', e => { if (e.target === fxMenu && Date.now() - seatHandled > 600) closeFxMenu(); });
+// Les boutons des fenêtres réagissent dès qu'on lève le doigt (le « clic » du téléphone est parfois perdu)
+let menuDown = null, menuHandled = 0;
+fxMenu.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-act]');
+  menuDown = el ? { el, act: el.dataset.act, arg: el.dataset.arg, x: e.clientX, y: e.clientY } : null;
+});
+fxMenu.addEventListener('pointerup', e => {
+  const d = menuDown; menuDown = null;
+  if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 14) return;
+  const el = e.target.closest('[data-act]');
+  if (!el || el.dataset.act !== d.act || el.dataset.arg !== d.arg || el.disabled) return;
+  menuHandled = Date.now();
+  actions[d.act](d.arg);
+});
+// Le clic qui suit ce même toucher est ignoré (y compris s'il tombe sur l'écran derrière la fenêtre refermée)
+document.addEventListener('click', e => {
+  if (Date.now() - menuHandled < 500) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 
 Object.assign(actions, {
   fxThrow(kind) {
@@ -142,6 +173,7 @@ function openSheet(html) {
   fxPick = null;
   fxMenu.innerHTML = `<div class="fx-card sheet">${html}</div>`;
   fxMenu.classList.add('open');
+  resyncViewport();
 }
 const closeSheet = closeFxMenu;
 actions.sheetClose = closeFxMenu;
