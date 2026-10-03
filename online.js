@@ -310,6 +310,7 @@ function normalize(x) {
   x.out = x.out || {};
   x.dice = x.dice || [0, 0, 0, 0, 0];
   x.table = [0, 1, 2, 3, 4].map(i => !!(x.table && x.table[i]));
+  x.history = Array.isArray(x.history) ? x.history : Object.values(x.history || {});
   ['open', 'mixed', 'peeked', 'announced'].forEach(k => { x[k] = !!x[k]; });
   ['claim', 'claimer', 'prev', 'last', 'wheel', 'reveal', 'dir', 'roundDir', 'ev', 'dirChooser', 'loser', 'deadline'].forEach(k => { if (x[k] === undefined) x[k] = null; });
   x.msg = x.msg || '';
@@ -366,10 +367,16 @@ function newRound(x, starter) {
     stage: 'play', dice: x.dice.map(rollDie), table: [false, false, false, false, false],
     open: false, mixed: false, peeked: false, announced: false,
     claim: null, claimer: null, last: null, cur: starter, prev: null, roundDir: null, reveal: null,
-    round: (x.round || 0) + 1,
+    round: (x.round || 0) + 1, history: [],
   });
   setDeadline(x, turnSecs());
   x.msg = (x.msg ? x.msg + ' ' : '') + `Nouvelle manche : ${B(starter)} commence.`;
+}
+
+// Historique des annonces de la manche : qui, quoi, comment il a joué (mélange ou table) et ce qu'il laissait sur la table
+function logClaim(x, who, claim, auto = false) {
+  const tableFaces = x.table.map((t, i) => (t ? x.dice[i] : null)).filter(v => v != null);
+  x.history = [...(x.history || []), { by: who, c: claim, l: x.mixed ? x.last : null, t: tableFaces, a: auto || null }];
 }
 
 // Le joueur en cours passe le chapeau (le premier passage de la manche fixe le sens pendant la charge)
@@ -449,6 +456,7 @@ function onTimeout(x) {
     const c = minClaimAbove(x.claim);
     if (!c) { ON.timeoutSummary = resolveHat(x); return; } // plus d'annonce possible : chapeau automatique
     x.claim = c; x.claimer = who; x.announced = true;
+    logClaim(x, who, c, true);
   }
   const claim = x.claim;
   passTurn(x, x.phase === 'decharge' ? x.dir : (x.roundDir || 1));
@@ -644,6 +652,7 @@ Object.assign(actions, {
     mutate(y => {
       if (!myTurn(y) || y.announced || (y.claim && cmpClaims(c, y.claim) <= 0)) return false;
       y.claim = sortClaim(c); y.claimer = me; y.announced = true; y.open = false;
+      logClaim(y, me, y.claim);
       const said = `${B(me)} annonce <span class="claim-inline">${claimName(c)}</span>.`;
       // Le tour passe tout seul, sauf s'il faut d'abord choisir le sens (début de la charge)
       const needDir = y.phase === 'charge' && y.roundDir == null && nextActive(y, me, 1) !== nextActive(y, me, -1);
@@ -653,6 +662,10 @@ Object.assign(actions, {
     }).then(() => summary && sysChat(summary));
     ON.compose = [];
     sysChat(`📣 ${ON.pseudo} annonce : ${claimName(c)}`);
+  },
+  onHistory() {
+    const x = g();
+    if (x) openSheet(historyHTML(x));
   },
   onPass(dir) {
     let summary = '';
@@ -951,6 +964,20 @@ function showTurnIntro({ claim, by }) {
   box.addEventListener('pointerdown', finish); // un toucher passe l'animation
 }
 
+// Fenêtre « Annonces de la manche », la plus récente en haut
+function historyHTML(x) {
+  const h = (x.history || []).slice().reverse();
+  const dice = f => `<span class="mini-dice">${sortClaim(f).map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</span>`;
+  return `<div class="fx-head">📜 Annonces de la manche</div>
+    ${h.length ? `<ol class="hist">${h.map((e, k) => `<li class="${k === 0 ? 'last' : ''}">
+      <div class="h-top"><b>${esc(x.names[e.by] || '?')}</b>${e.a ? ' <small>⏱ auto</small>' : ''}
+        <span class="h-how">${!e.l ? 'sans relancer' : e.l.where === 'hat' ? `🎩 mélangé (${e.l.n})` : `🎲 table (${e.l.n})`}</span></div>
+      <div class="h-claim">${claimName(e.c)} ${dice(e.c)}</div>
+      ${e.t && e.t.length ? `<div class="h-table">Sur la table : ${dice(e.t)}</div>` : ''}
+    </li>`).join('')}</ol>` : '<p class="hint">Pas encore d\'annonce dans cette manche.</p>'}
+    <button class="btn ghost sm" data-act="sheetClose">Fermer</button>`;
+}
+
 // Dernier lancer en petite étiquette (pour gagner de la place)
 function lastRollChip(x) {
   const L = x.last;
@@ -964,7 +991,7 @@ function playHTML(x) {
   const info = `<div class="infoline">${mine ? '<span class="chip-info me">🎩 À toi</span>' : ''}${timerHTML(x)}${lastRollChip(x)}${!x.order.includes(me) ? '<span class="tag-spec">👀 Tu regardes</span>' : ''}${spect ? `<span class="spec-n">👀 ${spect}</span>` : ''}</div>`;
   // Annonce en cours sur une ligne : nom + petits dés
   const claimBanner = x.claim
-    ? `<div class="banner compact"><small>${B(x.claimer)} :</small><strong>${claimName(x.claim)}</strong>${miniDice(x.claim)}</div>`
+    ? `<div class="banner compact" data-act="onHistory" role="button" aria-label="Annonces de la manche"><small>${B(x.claimer)} :</small><strong>${claimName(x.claim)}</strong>${miniDice(x.claim)}<span class="hist-badge">📜 ${(x.history || []).length}</span></div>`
     : '<div class="banner compact muted">Pas encore d\'annonce</div>';
   let body;
   if (!mine) {
@@ -1020,6 +1047,7 @@ function revealHTML(x) {
       ${oralFelt(true)}
       <p class="actual">Il y a : <b>${handName(r.actual)}</b></p>
       <div class="verdict ${r.truth ? 'truth' : 'lie'}">${r.truth ? `C'était vrai ! ${B(r.loser)} a perdu.` : `C'était du bluff ! ${B(r.loser)} a perdu.`}<br><small>${x.msg}</small></div>
+      <button class="btn ghost sm" data-act="onHistory">📜 Annonces de la manche</button>
       ${x.order.includes(me) ? '<button class="btn primary big" data-act="onContinue">Manche suivante</button>' : ''}
       <div class="infoline">${timerHTML(x)}</div>
     </div>`;

@@ -609,7 +609,7 @@ html[data-text="2"] { font-size: 125%; }
 
 /* Texte agrandi : on raccourcit les libellés et rien ne déborde sur les côtés */
 html[data-text="1"] .lng, html[data-text="2"] .lng { display: none; }
-@media (max-width: 360px) { .lng { display: none; } }
+@media (max-width: 400px) { .lng { display: none; } }
 #app[data-screen="oral"] .row2 > .btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-text="2"] #app[data-screen="oral"] .facebar .die { --s: min(11vw, 40px); }
 
@@ -630,3 +630,16 @@ html[data-text="2"] #app[data-screen="oral"] .facebar .die { --s: min(11vw, 40px
 /* Pendant qu'on glisse un dé, il peut sortir du tapis sans être caché */
 .felt.dragout { overflow: visible; position: relative; z-index: 50; }
 .die.dragging { z-index: 70; }
+
+/* Historique des annonces de la manche */
+.banner[data-act="onHistory"] { cursor: pointer; position: relative; }
+.hist-badge { font-size: .72rem; font-weight: 700; color: var(--ink); background: rgba(255,255,255,.12); border-radius: 99px; padding: 1px 7px; }
+.hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; text-align: left; }
+.hist li { background: rgba(255,255,255,.06); border-radius: 12px; padding: 7px 10px; }
+.hist li.last { border: 2px solid var(--gold); }
+.hist .h-top { display: flex; align-items: baseline; gap: 6px; font-size: .9rem; }
+.hist .h-how { margin-left: auto; font-size: .78rem; color: var(--muted); }
+.hist .h-claim { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-family: Georgia, serif; font-weight: 700; color: var(--gold); font-size: 1.05rem; margin-top: 2px; }
+.hist .h-table { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); margin-top: 3px; }
+.hist .mini-dice { margin: 0; }
+.hist .mini-dice .die { --s: 22px; }
