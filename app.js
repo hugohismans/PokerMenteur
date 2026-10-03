@@ -526,6 +526,8 @@ function setupHTML() {
     ${(() => { const s = savedGame(); return s ? `<button class="btn good big" data-act="oralResume">▶ Reprendre la partie<br><small>${s.G.players.map(p => esc(p.name)).join(', ')}</small></button>` : ''; })()}
     <button class="btn primary big" data-act="oralSetup">🎩 Nouvelle partie</button>
     <button class="btn big online-btn" data-act="onlineHome">🌐 Jouer en ligne</button>
+    ${(() => { let seen = false; try { seen = !!localStorage.getItem('pm-tuto'); } catch (e) {}
+      return `<button class="btn tuto-btn ${seen ? '' : 'new'}" data-act="tuto">📖 ${seen ? 'Tutoriel : règles et écran' : 'Première fois ? Découvre le tutoriel'}</button>`; })()}
     <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
     <section class="card">
       <h2>Style des dés</h2>
@@ -617,6 +619,9 @@ function render() {
       break;
     case 'oralReveal':
       html = oralRevealHTML();
+      break;
+    case 'tuto':
+      html = tutoHTML();
       break;
 
     case 'handoff':

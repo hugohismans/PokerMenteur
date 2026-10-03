@@ -643,3 +643,54 @@ html[data-text="2"] #app[data-screen="oral"] .facebar .die { --s: min(11vw, 40px
 .hist .h-table { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); margin-top: 3px; }
 .hist .mini-dice { margin: 0; }
 .hist .mini-dice .die { --s: 22px; }
+
+/* ---------- Tutoriel ---------- */
+.tuto-btn { background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.15); }
+.tuto-btn.new { border-color: var(--gold); color: var(--gold); animation: tutoglow 2s ease-in-out infinite; }
+@keyframes tutoglow { 50% { box-shadow: 0 0 16px rgba(227,179,65,.55); } }
+.t-count { margin-left: auto; color: var(--muted); font-weight: 700; font-size: .9rem; }
+.card.tuto { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.card.tuto h2 { margin: 0; text-align: center; font-family: Georgia, serif; color: var(--gold); font-size: 1.35rem; }
+.card.tuto.in-right { animation: tutoin-r .3s ease-out; }
+.card.tuto.in-left { animation: tutoin-l .3s ease-out; }
+@keyframes tutoin-r { from { transform: translateX(40px); opacity: 0; } }
+@keyframes tutoin-l { from { transform: translateX(-40px); opacity: 0; } }
+.t-art { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; }
+.t-art .ptable { width: 100%; height: 190px; }
+.t-dice { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.t-dice .die { --s: min(12vw, 44px); }
+.t-dice.sm .die { --s: 22px; }
+.t-dice.sm .die .corner, .t-art .ptable .die .corner { display: none; }
+.t-hat { width: 90px; }
+.t-hat.sm { width: 64px; }
+.t-hat.lift { animation: tutolift 2.4s ease-in-out infinite; transform-origin: 30% 90%; }
+@keyframes tutolift { 0%, 25%, 100% { transform: none; } 45%, 75% { transform: translate(18px, -16px) rotate(-22deg); } }
+.t-hat svg { width: 100%; display: block; }
+.t-felt { flex-direction: row; justify-content: space-between; align-items: center; background: radial-gradient(ellipse at center, #17734d, #0d4c33); border: 5px solid var(--wood); border-radius: 18px; padding: 8px 12px; }
+.t-felt small { display: block; color: var(--muted); font-size: .72rem; margin-bottom: 4px; }
+.t-combos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; width: 100%; counter-reset: c; }
+.t-combos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(255,255,255,.06); border-radius: 10px; padding: 3px 10px; counter-increment: c; }
+.t-combos li b::before { content: counter(c) ". "; color: var(--muted); }
+.t-compose { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--gold); }
+.t-facebar { background: rgba(0,0,0,.3); border-radius: 14px; padding: 6px; }
+.t-facebar .die { --s: min(10vw, 38px); }
+.t-toks { position: relative; width: 120px; height: 60px; }
+.t-modes { flex-direction: row; justify-content: center; gap: 22px; font-size: 2.2rem; }
+.t-modes span { display: flex; flex-direction: column; align-items: center; }
+.t-modes small { font-size: .8rem; color: var(--muted); font-weight: 700; }
+.t-body p { margin: 0 0 8px; line-height: 1.45; }
+.t-row { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 8px; line-height: 1.4; }
+.t-ico { flex: none; width: 1.6em; text-align: center; font-size: 1.15rem; }
+.t-note { color: var(--muted); font-size: .88rem; font-style: italic; }
+.t-go { text-align: center; font-weight: 700; color: var(--gold); margin-top: 6px !important; }
+.t-dots { display: flex; justify-content: center; gap: 7px; }
+.t-dots button { width: 9px; height: 9px; padding: 0; border-radius: 50%; background: rgba(255,255,255,.25); }
+.t-dots button.on { background: var(--gold); transform: scale(1.3); }
+.t-nav { margin-top: auto; }
+/* Le tutoriel tient dans l'écran : la carte défile à l'intérieur, les boutons restent en bas */
+#app[data-screen="tuto"] { height: 100vh; height: 100dvh; min-height: 0; gap: 8px; }
+#app[data-screen="tuto"] > * { flex-shrink: 0; }
+#app[data-screen="tuto"] > .card.tuto { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 14px; }
+#app[data-screen="tuto"] .t-nav { margin-top: 0; }
+#app[data-screen="tuto"] .t-nav .btn { white-space: nowrap; padding: 12px 8px; }
+#app[data-screen="tuto"] .t-art .ptable { height: 170px; }
