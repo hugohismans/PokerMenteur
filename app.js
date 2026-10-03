@@ -527,7 +527,7 @@ function setupHTML() {
     <button class="btn primary big" data-act="oralSetup">🎩 Nouvelle partie</button>
     <button class="btn big online-btn" data-act="onlineHome">🌐 Jouer en ligne</button>
     ${(() => { let seen = false; try { seen = !!localStorage.getItem('pm-tuto'); } catch (e) {}
-      return `<button class="btn tuto-btn ${seen ? '' : 'new'}" data-act="tuto">📖 ${seen ? 'Tutoriel : règles et écran' : 'Première fois ? Découvre le tutoriel'}</button>`; })()}
+      return `<button class="btn tuto-btn ${seen ? '' : 'new'}" data-act="tuto">📖 ${seen ? 'Tutoriel : jouer en ligne' : 'Première fois ? Découvre le tutoriel en ligne'}</button>`; })()}
     <p class="hint">Un seul téléphone qu'on se passe. Les annonces se font à voix haute.</p>
     <section class="card">
       <h2>Style des dés</h2>

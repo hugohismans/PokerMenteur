@@ -836,6 +836,7 @@ window.onlineHomeHTML = () => {
     ${ON.joinError ? `<p class="errmsg">${esc(ON.joinError)}</p>` : ''}
     ${ON.pendingJoin ? `<section class="card invite"><h2>📨 Invitation reçue</h2><p>Entre ton pseudo ci-dessous puis :</p><button class="btn good big" data-act="onPendingJoin">Rejoindre le salon</button></section>` : ''}
     ${ON.resumeId && !ON.pendingJoin ? `<button class="btn good big" data-act="onResume">▶ Revenir dans mon dernier salon</button>` : ''}
+    <button class="btn tuto-btn" data-act="tuto">📖 Comment jouer en ligne ?</button>
     <section class="card">
       <h2>Ton pseudo</h2>
       <input id="pseudo" class="txt" value="${esc(ON.pseudo)}" maxlength="14" placeholder="Ex. : Hugo" autocomplete="nickname">

@@ -1,5 +1,5 @@
 'use strict';
-/* Tutoriel pas à pas : les règles du poker menteur et comment se servir de l'écran. */
+/* Tutoriel pas à pas du jeu en ligne : les règles du poker menteur et comment se servir de l'écran. */
 
 const tdice = (faces, cls = '') => `<span class="t-dice ${cls}">${faces.map(v => `<span class="die f${v}">${faceInner(v)}</span>`).join('')}</span>`;
 const thint = (icon, html) => `<div class="t-row"><span class="t-ico">${icon}</span><span>${html}</span></div>`;
@@ -10,7 +10,7 @@ const TUTO = [
     art: () => `<div class="t-art">${tdice([0, 1, 2, 3, 4, 5])}<div class="t-hat">${HAT_SVG}</div></div>`,
     body: () => `<p>On joue avec <b>5 dés</b> à six faces : <b>9, 10, Valet, Dame, Roi, As</b>, et un <b>chapeau</b> qui cache les dés.</p>
       <p>Chacun à son tour annonce ce qu'il y a sous le chapeau… <b>en disant la vérité ou en bluffant</b>. Le suivant le croit, ou crie <b>« Chapeau ! »</b>.</p>
-      <p>Le but : <b>ne pas se faire prendre</b> et ne plus avoir de fiches à la fin.</p>`,
+      <p>En ligne, <b>chacun joue sur son téléphone</b> : l'appli gère les dés, le chapeau, les annonces et les fiches.</p>`,
   },
   {
     title: 'Les combinaisons',
@@ -46,16 +46,17 @@ const TUTO = [
   {
     title: 'Annoncer',
     art: () => `<div class="t-art"><div class="t-compose">${tdice([4, 4, 4, 5])}<b>Brelan de Rois, As</b></div><div class="t-facebar">${tdice([0, 1, 2, 3, 4, 5])}</div></div>`,
-    body: () => `${thint('👆', 'En ligne, <b>touche les dés</b> de la barre (de 1 à 5) : l\'appli trouve la combinaison. Puis <b>📣 Annoncer</b> : le chapeau passe tout seul.')}
+    body: () => `${thint('👆', '<b>Touche les dés</b> de la barre (de 1 à 5) : l\'appli trouve la combinaison. Touche un dé choisi pour le retirer, ou <b>Effacer</b>. Puis <b>📣 Annoncer</b> : le chapeau passe tout seul au suivant.')}
       ${thint('⬆️', 'Il faut annoncer <b>plus fort</b>. Les dés en plus départagent : après « Brelan de Rois, As », il faut au moins « Brelan de Rois, As, 9 ».')}
       ${thint('🤫', 'Tu peux <b>sous-annoncer</b> : l\'annonce est vraie si les dés valent <b>au moins</b> ce qui est annoncé.')}
       ${thint('💥', 'Après un <b>Poker</b>, plus rien n\'est possible : le suivant fait « Chapeau ! » automatiquement.')}
-      <p class="t-note">En local, les annonces se font à voix haute.</p>`,
+      <p class="t-note">Au tout premier passage de la charge, tu choisis aussi le sens : à gauche ou à droite.</p>`,
   },
   {
     title: '« Chapeau ! » et les fiches',
     art: () => `<div class="t-art"><div class="verdict lie">C'était du bluff ! Léa a perdu.</div><div class="t-toks">${pileHTML('cailloux', 7, 7, 2)}</div></div>`,
     body: () => `<p>On soulève le chapeau : si l'annonce est <b>vraie</b>, celui qui a dit « Chapeau ! » perd. Si c'était <b>du bluff</b>, c'est l'annonceur qui perd.</p>
+      ${thint('🎡', 'Une <b>roue</b> tire au sort qui commence la partie.')}
       ${thint('➕', '<b>La charge</b> : au départ il y a 2 × le nombre de joueurs + 1 fiches au milieu. Le perdant en prend une.')}
       ${thint('➖', '<b>La décharge</b> (quand le pot est vide) : le gagnant remet une de ses fiches au milieu. Sans fiche, on est <b>sauvé</b>.')}
       ${thint('🏁', 'Le <b>dernier</b> qui a encore des fiches a perdu la partie. Le perdant commence la manche suivante.')}`,
@@ -66,19 +67,22 @@ const TUTO = [
     body: () => `${thint('🎩', 'La <b>table vue du dessus</b> : le chapeau passe de joueur en joueur, se soulève quand quelqu\'un regarde, la bulle montre la dernière annonce.')}
       ${thint('📜', 'Touche le <b>bandeau d\'annonce</b> pour voir l\'<b>historique des annonces</b> de la manche.')}
       ${thint('🍅', 'Touche un <b>joueur</b> pour lui lancer une tomate, des fleurs, un café…')}
-      ${thint('💬', '<b>Chat</b>, 🔊 son, ⏱ temps pour jouer, et dans les options : <b>🔠 taille du texte</b>.')}`,
+      ${thint('⏱', 'Le <b>minuteur</b> : si le temps est écoulé, l\'appli annonce le minimum pour toi et passe le chapeau.')}
+      ${thint('💬', 'En haut : le <b>chat</b>, 📳 secouer pour mélanger, 🔊 le son, ✕ quitter. Dans les options de l\'accueil : <b>🔠 taille du texte</b>.')}`,
   },
   {
-    title: 'Trois façons de jouer',
-    art: () => `<div class="t-art t-modes"><span>📱<small>Simple</small></span><span>🪙<small>Complet</small></span><span>🌐<small>En ligne</small></span></div>`,
-    body: () => `${thint('📱', '<b>Simple</b> : un seul téléphone qu\'on se passe, l\'appli gère les dés et le chapeau, vos fiches sont sur la vraie table.')}
-      ${thint('🪙', '<b>Complet</b> : l\'appli gère aussi les joueurs et les fiches ; une roue tire au sort qui commence.')}
-      ${thint('🌐', '<b>En ligne</b> : chacun sur son téléphone, salon public ou privé (avec une clé), et des spectateurs.')}
+    title: 'Rejoindre une partie',
+    art: () => `<div class="t-art t-modes"><span>🌍<small>Public</small></span><span>🔒<small>Privé</small></span><span>👀<small>Spectateur</small></span></div>`,
+    body: () => `${thint('✏️', 'Dans <b>🌐 Jouer en ligne</b>, choisis ton <b>pseudo</b>.')}
+      ${thint('🌍', '<b>Salon public</b> : il apparaît dans la liste, tout le monde peut le rejoindre.')}
+      ${thint('🔒', '<b>Salon privé</b> : on le rejoint avec sa <b>clé</b>. Touche <b>🔗 Inviter des amis</b> pour l\'envoyer.')}
+      ${thint('👑', 'Le <b>maître du salon</b> choisit le temps par tour et les fiches, puis <b>lance la partie</b>. Il peut aussi fermer le salon.')}
+      ${thint('👀', 'Une partie déjà commencée ? On peut la <b>regarder en spectateur</b> et s\'asseoir à la suivante.')}
       <p class="t-go">Bon jeu… et méfie-toi des menteurs ! 🎩</p>`,
   },
 ];
 
-let tutoStep = 0;
+let tutoStep = 0, tutoFrom = 'setup';
 function tutoHTML() {
   const s = TUTO[tutoStep], last = tutoStep === TUTO.length - 1;
   return `<div class="topbar"><button class="icon" data-act="tutoExit" aria-label="Fermer">←</button><div class="apptitle">📖 Tutoriel</div>
@@ -91,13 +95,13 @@ function tutoHTML() {
     <div class="t-dots">${TUTO.map((_, i) => `<button class="${i === tutoStep ? 'on' : ''}" data-act="tutoGo" data-arg="${i}" aria-label="Étape ${i + 1}"></button>`).join('')}</div>
     <div class="row2 t-nav">
       <button class="btn ghost" data-act="tutoGo" data-arg="${tutoStep - 1}" ${tutoStep ? '' : 'disabled'}>← Précédent</button>
-      ${last ? '<button class="btn primary" data-act="tutoExit">C\'est parti !</button>'
+      ${last ? '<button class="btn primary" data-act="onlineHome">🌐 C\'est parti !</button>'
         : `<button class="btn primary" data-act="tutoGo" data-arg="${tutoStep + 1}">Suivant →</button>`}
     </div>`;
 }
 
 Object.assign(actions, {
-  tuto() { tutoStep = 0; S.screen = 'tuto'; try { localStorage.setItem('pm-tuto', '1'); } catch (e) {} render(); window.scrollTo(0, 0); },
+  tuto() { tutoStep = 0; tutoFrom = S.screen === 'online' ? 'online' : 'setup'; S.screen = 'tuto'; try { localStorage.setItem('pm-tuto', '1'); } catch (e) {} render(); window.scrollTo(0, 0); },
   tutoGo(i) {
     i = +i;
     if (i < 0 || i >= TUTO.length) return;
@@ -106,7 +110,7 @@ Object.assign(actions, {
     const c = document.getElementById('tutoCard');
     if (c) c.classList.add(dir > 0 ? 'in-right' : 'in-left');
   },
-  tutoExit() { S.screen = 'setup'; render(); },
+  tutoExit() { S.screen = tutoFrom; render(); },
 });
 
 // Glisser à gauche / à droite pour changer d'étape
