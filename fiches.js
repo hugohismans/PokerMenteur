@@ -175,6 +175,17 @@ function fitTable() {
   }
 }
 
+// Taille du texte : sur l'écran de jeu, on garde la taille choisie tant que tout tient,
+// sinon on la réduit juste ce qu'il faut (jamais en dessous de la taille normale)
+function fitText() {
+  const root = document.documentElement, app = document.getElementById('app');
+  const want = [100, 112.5, 125][typeof textSize === 'number' ? textSize : 0] || 100;
+  if (want === 100 || app.dataset.screen !== 'oral') { root.style.fontSize = ''; return; }
+  let size = want;
+  root.style.fontSize = `${size}%`;
+  while (appOverflows() && size > 100) { size = Math.max(100, size - 4); root.style.fontSize = `${size}%`; }
+}
+
 // Version compacte : une ligne avec les joueurs et leurs fiches
 function playersStripHTML(G) {
   return `<div class="pstrip">${G.players.map((p, i) => `

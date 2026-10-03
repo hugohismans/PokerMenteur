@@ -626,3 +626,7 @@ html[data-text="2"] #app[data-screen="oral"] .facebar .die { --s: min(11vw, 40px
 @keyframes tipop { from { transform: scale(.4); opacity: 0; } }
 .banner.landed { animation: landed .6s ease-out; }
 @keyframes landed { 0% { box-shadow: 0 0 0 0 rgba(227,179,65,.9); transform: scale(1.06); } 100% { box-shadow: 0 0 0 14px rgba(227,179,65,0); transform: none; } }
+
+/* Pendant qu'on glisse un dé, il peut sortir du tapis sans être caché */
+.felt.dragout { overflow: visible; position: relative; z-index: 50; }
+.die.dragging { z-index: 70; }

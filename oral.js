@@ -252,6 +252,8 @@ document.addEventListener('pointermove', e => {
   if (!drag.moved && Math.hypot(dx, dy) > 12) {
     drag.moved = true;
     drag.el.classList.add('dragging');
+    drag.from = drag.el.closest('[data-zone]')?.dataset.zone;
+    drag.el.closest('.felt')?.classList.add('dragout'); // le dé reste visible même hors du tapis
     try { drag.el.setPointerCapture(e.pointerId); } catch (err) {}
   }
   if (drag.moved) drag.el.style.transform = `translate(${dx}px, ${dy}px) scale(1.12) rotate(${dx / 8}deg)`;
@@ -266,8 +268,10 @@ function endDrag(e) {
   const under = document.elementFromPoint(e.clientX, e.clientY);
   d.el.style.visibility = '';
   const zone = under && under.closest('[data-zone]');
-  // Lâché hors des zones : on se fie à la direction (la table est au-dessus du chapeau)
-  const where = zone ? zone.dataset.zone : (e.clientY < d.y ? 'table' : 'hat');
+  d.el.closest('.felt')?.classList.remove('dragout');
+  // Lâché hors du tapis (en haut, en bas, sur les boutons…) : le dé change de côté
+  // (sorti du chapeau → sur la table, et inversement) au lieu de disparaître
+  const where = zone ? zone.dataset.zone : (d.from === 'hat' ? 'table' : d.from === 'table' ? 'hat' : (e.clientY < d.y ? 'table' : 'hat'));
   moveDie(d.i, where);
 }
 document.addEventListener('pointerup', endDrag);
@@ -480,6 +484,7 @@ document.addEventListener('input', e => {
 function afterRender() {
   armShake();
   fitTable();
+  fitText();
   animateTable();
   if (typeof onlineAfterRender === 'function') onlineAfterRender();
   if (G && GAME_SCREENS.includes(S.screen)) saveGame();
